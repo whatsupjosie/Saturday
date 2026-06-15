@@ -1,0 +1,946 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PubCast AI â€” Stage</title>
+<style>
+/* â”€â”€ Reset & base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:    #d4a84b;
+  --gold-dim: rgba(212,168,75,0.18);
+  --teal:    #6dd6c7;
+  --cream:   #e8dfc8;
+  --ink:     #0d0b09;
+  --amber:   #e5c17e;
+  --warm-mid:#a09070;
+  --red-rec: #ff2222;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--ink)}
+body{font-family:Consolas, 'Courier New', monospace;color:var(--cream)}
+
+/* â”€â”€ Stage â€” the 2.5D parallax world â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+#stage{
+  position:fixed;inset:0;overflow:hidden;
+  background:radial-gradient(ellipse 120% 80% at 50% 60%, #1a1208 0%, #0d0b09 100%);
+}
+
+/* Parallax layers â€” each shifts independently on mouse/camera move */
+.layer{position:absolute;inset:0;will-change:transform;transform-origin:center center}
+
+/* Layer 0 â€” deep background: painted wall texture */
+#layer-bg{
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 110%, rgba(212,168,75,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 100% 60% at 50% 100%, rgba(180,120,40,0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0806 0%, #100e08 40%, #0d0b09 100%);
+}
+
+/* Layer 1 â€” back wall architecture */
+#layer-wall{z-index:1}
+#layer-wall::before{
+  content:'';position:absolute;
+  left:50%;top:0;width:72%;height:90%;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg, #1a1610 0%, #131008 60%, transparent 100%);
+  border-left:1px solid rgba(212,168,75,0.08);
+  border-right:1px solid rgba(212,168,75,0.08);
+}
+/* Arch above the stage */
+#layer-wall::after{
+  content:'';position:absolute;
+  left:50%;top:-5%;width:60%;height:55%;
+  transform:translateX(-50%);
+  border-radius:50% 50% 0 0 / 60% 60% 0 0;
+  border-top:1px solid rgba(212,168,75,0.12);
+  border-left:1px solid rgba(212,168,75,0.08);
+  border-right:1px solid rgba(212,168,75,0.08);
+}
+
+/* Layer 2 â€” broadcast monitor bank on back wall */
+#layer-monitors{z-index:2}
+.monitor-bank{
+  position:absolute;top:12%;left:50%;transform:translateX(-50%);
+  display:flex;gap:12px;align-items:center;
+}
+.monitor{
+  width:90px;height:60px;
+  border:1px solid rgba(212,168,75,0.25);
+  background:rgba(8,12,16,0.9);
+  border-radius:3px;position:relative;overflow:hidden;
+  box-shadow:0 0 20px rgba(0,0,0,0.6),inset 0 0 8px rgba(0,0,0,0.8);
+}
+.monitor::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%);
+}
+.monitor-scanline{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+  pointer-events:none;
+}
+.monitor-feed{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:Consolas, 'Courier New', monospace;font-size:7px;color:rgba(109,214,199,0.5);
+  letter-spacing:1px;text-transform:uppercase;
+}
+.monitor-label{
+  position:absolute;bottom:-16px;left:0;right:0;text-align:center;
+  font-size:7px;letter-spacing:2px;color:rgba(212,168,75,0.4);font-family:Georgia, 'Times New Roman', serif;
+}
+.monitor.pgm{border-color:rgba(255,34,34,0.5);box-shadow:0 0 12px rgba(255,34,34,0.2),inset 0 0 8px rgba(0,0,0,0.8)}
+.monitor.pvw{border-color:rgba(34,221,102,0.4);box-shadow:0 0 12px rgba(34,221,102,0.15),inset 0 0 8px rgba(0,0,0,0.8)}
+
+/* Layer 3 â€” ambient light halo on back wall, animated */
+#layer-ambientlight{z-index:3;pointer-events:none}
+.ambient-halo{
+  position:absolute;
+  left:50%;top:30%;width:55%;padding-top:30%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(ellipse 100% 100% at 50% 50%,
+    rgba(229,193,126,0.07) 0%,
+    rgba(212,168,75,0.03) 40%,
+    transparent 70%);
+  border-radius:50%;
+  animation:halo-breathe 4.2s ease-in-out infinite;
+}
+@keyframes halo-breathe{
+  0%,100%{opacity:0.7;transform:translate(-50%,-50%) scale(1)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}
+}
+
+/* Layer 4 â€” midground set dressing: desk / console */
+#layer-desk{z-index:4}
+.broadcast-desk{
+  position:absolute;
+  bottom:18%;left:50%;width:55%;
+  transform:translateX(-50%);
+  height:12%;
+  background:linear-gradient(180deg, #2a1e10 0%, #1a130a 60%, #0f0c08 100%);
+  border-top:1px solid rgba(212,168,75,0.3);
+  border-radius:4px 4px 0 0;
+  box-shadow:
+    0 -4px 20px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(212,168,75,0.15);
+}
+.desk-panel{
+  position:absolute;bottom:100%;left:10%;right:10%;height:30%;
+  background:linear-gradient(180deg, #1e1610 0%, #2a1e12 100%);
+  border:1px solid rgba(212,168,75,0.15);
+  border-bottom:none;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:0 12px;
+}
+.desk-led{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(109,214,199,0.4);
+  box-shadow:0 0 6px rgba(109,214,199,0.4);
+  animation:led-pulse 2s ease-in-out infinite;
+}
+.desk-led:nth-child(2){animation-delay:.4s}
+.desk-led:nth-child(3){animation-delay:.8s;background:rgba(212,168,75,0.5);box-shadow:0 0 6px rgba(212,168,75,0.4)}
+.desk-led:nth-child(4){animation-delay:1.2s}
+.desk-led:nth-child(5){animation-delay:1.6s;background:rgba(255,34,34,0.5);box-shadow:0 0 6px rgba(255,34,34,0.4)}
+@keyframes led-pulse{0%,100%{opacity:0.5}50%{opacity:1}}
+
+.desk-logo{
+  font-family:Georgia, 'Times New Roman', serif;font-size:8px;font-weight:700;
+  letter-spacing:4px;color:rgba(212,168,75,0.3);text-transform:uppercase;
+  margin:0 auto;
+}
+
+/* Layer 5 â€” character layer â€” avatars rendered here */
+#layer-characters{z-index:5;pointer-events:none}
+
+/* Character slot â€” where the SVG avatar lives */
+.char-slot{
+  position:absolute;bottom:18%;
+  display:flex;flex-direction:column;align-items:center;
+  transform-origin:bottom center;
+}
+.char-slot.host{left:50%;transform:translateX(-50%)}
+.char-slot.left{left:22%}
+.char-slot.right{right:22%}
+
+/* SVG avatar â€” silhouette with glow */
+.char-figure{
+  position:relative;
+  width:100px;height:200px;
+  filter:drop-shadow(0 0 16px var(--char-glow,rgba(109,214,199,0.3)));
+  animation:char-breathe 3.8s ease-in-out infinite;
+}
+.char-slot.left .char-figure{animation-delay:.6s}
+.char-slot.right .char-figure{animation-delay:1.2s}
+@keyframes char-breathe{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-4px)}
+}
+
+.char-name{
+  font-family:Georgia, 'Times New Roman', serif;font-size:8px;font-weight:700;
+  letter-spacing:3px;color:rgba(212,168,75,0.5);text-transform:uppercase;
+  margin-top:6px;text-shadow:0 0 10px rgba(212,168,75,0.3);
+}
+
+/* Foot glow ring */
+.char-glow-ring{
+  position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
+  width:60px;height:12px;
+  border-radius:50%;
+  background:radial-gradient(ellipse 100% 100% at 50% 50%, var(--char-glow,rgba(109,214,199,0.25)) 0%, transparent 70%);
+  animation:ring-pulse 3.8s ease-in-out infinite;
+  filter:blur(2px);
+}
+@keyframes ring-pulse{0%,100%{opacity:0.6;transform:translateX(-50%) scaleX(1)}50%{opacity:1;transform:translateX(-50%) scaleX(1.15)}}
+
+/* Mood state indicator â€” small colored dot above name */
+.char-mood{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--char-glow,rgba(109,214,199,0.6));
+  box-shadow:0 0 8px var(--char-glow,rgba(109,214,199,0.6));
+  margin-bottom:4px;
+}
+
+/* Layer 6 â€” foreground dressing: equipment edges, mic arm, cables */
+#layer-fg{z-index:6;pointer-events:none}
+/* Mic arm â€” comes from bottom-right */
+.mic-arm{
+  position:absolute;bottom:22%;right:32%;
+  width:2px;height:30%;
+  background:linear-gradient(0deg, rgba(212,168,75,0.25) 0%, rgba(212,168,75,0.08) 100%);
+  transform:rotate(-8deg);transform-origin:bottom center;
+}
+.mic-head{
+  position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+  width:10px;height:16px;border-radius:5px;
+  border:1px solid rgba(212,168,75,0.3);
+  background:rgba(30,20,10,0.8);
+}
+/* Left equipment edge â€” partial frame of a monitor just offscreen */
+.fg-equipment-left{
+  position:absolute;left:0;top:20%;bottom:22%;
+  width:6%;
+  background:linear-gradient(90deg, #0d0b09 0%, rgba(30,22,12,0.7) 60%, transparent 100%);
+  border-right:1px solid rgba(212,168,75,0.06);
+}
+.fg-equipment-right{
+  position:absolute;right:0;top:20%;bottom:22%;
+  width:6%;
+  background:linear-gradient(270deg, #0d0b09 0%, rgba(30,22,12,0.7) 60%, transparent 100%);
+  border-left:1px solid rgba(212,168,75,0.06);
+}
+
+/* Layer 7 â€” key light shafts, top-down through rig */
+#layer-lighting{z-index:7;pointer-events:none;mix-blend-mode:screen}
+.light-shaft{
+  position:absolute;top:0;
+  width:180px;
+  background:linear-gradient(180deg, rgba(229,193,126,0.05) 0%, transparent 80%);
+  clip-path:polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  transform-origin:top center;
+  animation:shaft-sway 7s ease-in-out infinite;
+}
+.light-shaft.main{left:50%;transform:translateX(-50%);height:75%;animation-delay:0s}
+.light-shaft.left{left:28%;height:55%;opacity:0.5;animation-delay:1.5s}
+.light-shaft.right{right:28%;height:55%;opacity:0.5;animation-delay:3s}
+@keyframes shaft-sway{
+  0%,100%{opacity:0.7}
+  50%{opacity:1}
+}
+
+/* Floor reflection */
+#layer-reflection{z-index:3;pointer-events:none}
+.floor-reflect{
+  position:absolute;bottom:0;left:0;right:0;height:20%;
+  background:linear-gradient(0deg,
+    rgba(229,193,126,0.04) 0%,
+    transparent 100%);
+}
+
+/* â”€â”€ UI Chrome â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* Chat panel */
+.chat-panel{
+  position:fixed;right:0;top:0;bottom:80px;width:300px;z-index:20;
+  background:rgba(10,8,6,0.88);
+  border-left:1px solid var(--gold-dim);
+  display:flex;flex-direction:column;
+  backdrop-filter:blur(8px);
+}
+.chat-header{
+  padding:10px 14px;border-bottom:1px solid var(--gold-dim);
+  font-family:Georgia, 'Times New Roman', serif;font-size:0.65rem;font-weight:700;
+  letter-spacing:4px;color:var(--amber);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.chat-header-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--teal);
+  box-shadow:0 0 6px var(--teal);animation:led-pulse 2s ease-in-out infinite;
+}
+.chat-messages{
+  flex:1;overflow-y:auto;padding:8px 10px;font-size:0.72rem;line-height:1.6;
+  scrollbar-width:thin;scrollbar-color:rgba(212,168,75,0.2) transparent;
+}
+.chat-msg{margin-bottom:5px}
+.chat-msg .user{color:var(--teal);font-weight:700}
+.chat-msg .bot{color:var(--amber);font-weight:700}
+.chat-msg .text{color:var(--warm-mid)}
+.chat-input-bar{
+  display:flex;gap:4px;padding:8px;border-top:1px solid var(--gold-dim);
+}
+.chat-input{
+  flex:1;background:rgba(255,255,255,0.04);
+  border:1px solid var(--gold-dim);color:var(--cream);
+  padding:7px 10px;font-family:Consolas, 'Courier New', monospace;font-size:0.72rem;
+  outline:none;transition:border-color .2s;
+}
+.chat-input:focus{border-color:var(--teal)}
+.chat-send{
+  background:var(--gold-dim);border:1px solid rgba(212,168,75,0.3);
+  color:var(--amber);padding:7px 12px;cursor:pointer;
+  font-family:Georgia, 'Times New Roman', serif;font-size:0.58rem;font-weight:700;letter-spacing:1px;
+  transition:background .15s;
+}
+.chat-send:hover{background:rgba(212,168,75,0.28)}
+
+/* Camera bar */
+.cam-bar{
+  position:fixed;bottom:40px;left:0;right:300px;z-index:20;
+  display:flex;justify-content:center;gap:4px;padding:5px 8px;
+  background:rgba(8,7,5,0.85);border-top:1px solid var(--gold-dim);
+}
+.cam-btn{
+  padding:5px 14px;border:1px solid var(--gold-dim);
+  background:rgba(0,0,0,0.4);color:var(--warm-mid);
+  font-family:Georgia, 'Times New Roman', serif;font-size:0.55rem;font-weight:700;
+  letter-spacing:1.5px;cursor:pointer;transition:all .12s;text-transform:uppercase;
+}
+.cam-btn:hover{border-color:var(--amber);color:var(--amber)}
+.cam-btn.active{border-color:var(--red-rec);color:var(--red-rec);background:rgba(255,34,34,0.08)}
+.cam-btn.pvw{border-color:#22dd66;color:#22dd66;background:rgba(34,221,102,0.06)}
+
+/* Status bar */
+.status-bar{
+  position:fixed;bottom:0;left:0;right:0;height:40px;z-index:20;
+  background:rgba(8,7,5,0.92);border-top:1px solid var(--gold-dim);
+  display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  font-size:0.62rem;letter-spacing:1.5px;
+}
+.status-left,.status-right{display:flex;gap:14px;align-items:center}
+.rec-indicator{display:flex;align-items:center;gap:5px;color:var(--red-rec)}
+.rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red-rec);display:none}
+.rec-dot.on{display:block;animation:blink .7s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.cam-indicator{color:var(--amber)}
+.room-indicator{color:var(--teal)}
+
+.rec-btn{
+  background:rgba(255,34,34,0.12);border:1px solid rgba(255,34,34,0.3);
+  color:var(--red-rec);padding:5px 12px;cursor:pointer;
+  font-family:Georgia, 'Times New Roman', serif;font-size:0.55rem;font-weight:700;letter-spacing:1px;
+  transition:background .15s;
+}
+.rec-btn:hover,.rec-btn.on{background:rgba(255,34,34,0.25)}
+
+/* Room selector */
+.room-btn{
+  background:none;border:1px solid var(--gold-dim);color:var(--warm-mid);
+  padding:4px 10px;cursor:pointer;
+  font-family:Georgia, 'Times New Roman', serif;font-size:0.52rem;letter-spacing:1px;
+  transition:all .12s;
+}
+.room-btn:hover{border-color:var(--teal);color:var(--teal)}
+.room-btn.active{border-color:var(--teal);color:var(--teal);background:rgba(109,214,199,0.08)}
+
+/* Upgrade badge â€” links to 3D stage */
+.upgrade-badge{
+  position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:30;
+  background:rgba(10,8,6,0.85);border:1px solid var(--gold-dim);
+  padding:4px 12px;font-family:Georgia, 'Times New Roman', serif;font-size:0.52rem;
+  letter-spacing:2px;color:rgba(212,168,75,0.5);
+  backdrop-filter:blur(4px);cursor:pointer;transition:all .2s;text-decoration:none;display:block;
+  text-align:center;
+}
+.upgrade-badge:hover{border-color:var(--amber);color:var(--amber)}
+
+/* Vignette overlay */
+.vignette{
+  position:fixed;inset:0;z-index:8;pointer-events:none;
+  background:radial-gradient(ellipse 90% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.5) 100%);
+}
+
+/* Grain overlay */
+.grain{
+  position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:128px 128px;
+  animation:grain-shift 0.5s steps(1) infinite;
+}
+@keyframes grain-shift{
+  0%{background-position:0 0}25%{background-position:10px -5px}
+  50%{background-position:-5px 10px}75%{background-position:5px 5px}
+}
+</style>
+</head>
+<body>
+<nav style="position:fixed;top:12px;right:12px;z-index:200;display:flex;gap:8px;flex-wrap:wrap">
+  <a href="/director-switcher" style="background:rgba(5,3,2,.76);border:1px solid rgba(216,175,91,.45);color:#ffe5a0;font:700 11px Consolas,'Courier New',monospace;letter-spacing:.08em;padding:7px 10px;border-radius:6px;text-decoration:none">DIRECTOR SWITCHER</a>
+  <a href="/avatar-walk-test" style="background:rgba(5,3,2,.76);border:1px solid rgba(71,231,255,.45);color:#baf7ff;font:700 11px Consolas,'Courier New',monospace;letter-spacing:.08em;padding:7px 10px;border-radius:6px;text-decoration:none">MANNY WALK</a>
+</nav>
+
+<!-- â”€â”€ STAGE â€” 2.5D PARALLAX WORLD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<div id="stage">
+
+  <!-- Layer 0: Deep background -->
+  <div class="layer" id="layer-bg" data-depth="0.02"></div>
+
+  <!-- Layer 1: Back wall architecture -->
+  <div class="layer" id="layer-wall" data-depth="0.04"></div>
+
+  <!-- Layer 2: Monitor bank -->
+  <div class="layer" id="layer-monitors" data-depth="0.06">
+    <div class="monitor-bank">
+      <div style="position:relative">
+        <div class="monitor pgm">
+          <div class="monitor-scanline"></div>
+          <div class="monitor-feed" id="pgm-feed">PGM</div>
+        </div>
+        <div class="monitor-label">PROGRAM</div>
+      </div>
+      <div style="position:relative">
+        <div class="monitor" style="width:60px;height:42px;opacity:0.6">
+          <div class="monitor-scanline"></div>
+          <div class="monitor-feed" style="font-size:6px">CAM 2</div>
+        </div>
+        <div class="monitor-label" style="font-size:6px">RETURN</div>
+      </div>
+      <div style="position:relative">
+        <div class="monitor pvw">
+          <div class="monitor-scanline"></div>
+          <div class="monitor-feed" style="color:rgba(34,221,102,0.5)">PVW</div>
+        </div>
+        <div class="monitor-label">PREVIEW</div>
+      </div>
+      <div style="position:relative">
+        <div class="monitor" style="width:60px;height:42px;opacity:0.5">
+          <div class="monitor-scanline"></div>
+          <div class="monitor-feed" style="font-size:6px" id="clock-feed">00:00</div>
+        </div>
+        <div class="monitor-label" style="font-size:6px">CLOCK</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 3: Ambient light halo -->
+  <div class="layer" id="layer-ambientlight" data-depth="0.0">
+    <div class="ambient-halo" id="ambientHalo"></div>
+  </div>
+
+  <!-- Floor reflection -->
+  <div class="layer" id="layer-reflection" data-depth="0.0">
+    <div class="floor-reflect"></div>
+  </div>
+
+  <!-- Layer 4: Desk / broadcast console -->
+  <div class="layer" id="layer-desk" data-depth="0.10">
+    <div class="broadcast-desk">
+      <div class="desk-panel">
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+        <span class="desk-logo">Belle Ã‰poque Studios</span>
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+        <div class="desk-led"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 5: Characters -->
+  <div class="layer" id="layer-characters" data-depth="0.14">
+
+    <!-- Left character â€” Pete -->
+    <div class="char-slot left" id="slot-pete" style="--char-glow:rgba(109,214,199,0.4)">
+      <div class="char-mood"></div>
+      <div class="char-figure">
+        <svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" width="100" height="200">
+          <defs>
+            <radialGradient id="peteglow" cx="50%" cy="40%" r="50%">
+              <stop offset="0%" stop-color="#6dd6c7" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#3a9e94" stop-opacity="0.3"/>
+            </radialGradient>
+            <filter id="peteglow-f"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <!-- Body silhouette â€” production floor worker, practical clothes -->
+          <!-- Legs -->
+          <rect x="37" y="140" width="12" height="55" rx="4" fill="url(#peteglow)" opacity="0.5"/>
+          <rect x="51" y="140" width="12" height="55" rx="4" fill="url(#peteglow)" opacity="0.5"/>
+          <!-- Torso â€” work clothes, slight figure -->
+          <path d="M28 80 Q30 70 50 68 Q70 70 72 80 L70 145 Q60 148 50 148 Q40 148 30 145 Z" fill="url(#peteglow)" opacity="0.7"/>
+          <!-- Arms -->
+          <path d="M28 82 Q18 100 20 130" stroke="#6dd6c7" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <path d="M72 82 Q82 100 80 130" stroke="#6dd6c7" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <!-- Neck -->
+          <rect x="44" y="60" width="12" height="14" rx="5" fill="url(#peteglow)" opacity="0.7"/>
+          <!-- Head -->
+          <ellipse cx="50" cy="45" rx="18" ry="20" fill="url(#peteglow)" opacity="0.85" filter="url(#peteglow-f)"/>
+          <!-- Wedding ring on middle finger suggestion -->
+          <circle cx="20" cy="128" r="3" fill="none" stroke="rgba(212,168,75,0.6)" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="char-glow-ring"></div>
+      <div class="char-name">Pete</div>
+    </div>
+
+    <!-- Center character â€” Host / Director slot -->
+    <div class="char-slot host" id="slot-host" style="--char-glow:rgba(229,193,126,0.5);display:none">
+      <div class="char-mood" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></div>
+      <div class="char-figure" style="width:110px;height:220px">
+        <svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" width="110" height="220">
+          <defs>
+            <radialGradient id="hostglow" cx="50%" cy="40%" r="50%">
+              <stop offset="0%" stop-color="#e5c17e" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#b08030" stop-opacity="0.3"/>
+            </radialGradient>
+            <filter id="hostglow-f"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <rect x="37" y="140" width="12" height="55" rx="4" fill="url(#hostglow)" opacity="0.5"/>
+          <rect x="51" y="140" width="12" height="55" rx="4" fill="url(#hostglow)" opacity="0.5"/>
+          <path d="M26 80 Q28 68 50 66 Q72 68 74 80 L72 145 Q61 149 50 149 Q39 149 28 145 Z" fill="url(#hostglow)" opacity="0.75"/>
+          <path d="M26 82 Q16 102 18 132" stroke="#e5c17e" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <path d="M74 82 Q84 102 82 132" stroke="#e5c17e" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <rect x="44" y="58" width="12" height="14" rx="5" fill="url(#hostglow)" opacity="0.75"/>
+          <ellipse cx="50" cy="43" rx="19" ry="21" fill="url(#hostglow)" opacity="0.9" filter="url(#hostglow-f)"/>
+        </svg>
+      </div>
+      <div class="char-glow-ring" style="--char-glow:rgba(229,193,126,0.35)"></div>
+      <div class="char-name">Host</div>
+    </div>
+
+    <!-- Right character â€” Purfluous -->
+    <div class="char-slot right" id="slot-purfluous" style="--char-glow:rgba(180,120,220,0.45)">
+      <div class="char-mood" style="background:rgba(180,120,220,0.7);box-shadow:0 0 8px rgba(180,120,220,0.5)"></div>
+      <div class="char-figure" style="width:105px;height:210px">
+        <svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" width="105" height="210">
+          <defs>
+            <radialGradient id="purfglow" cx="50%" cy="40%" r="50%">
+              <stop offset="0%" stop-color="#c078e0" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#7030a0" stop-opacity="0.3"/>
+            </radialGradient>
+            <filter id="purfglow-f"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <!-- Purfluous â€” theatrical, older, broader presence. Coat tails suggested -->
+          <rect x="36" y="140" width="12" height="55" rx="4" fill="url(#purfglow)" opacity="0.5"/>
+          <rect x="52" y="140" width="12" height="55" rx="4" fill="url(#purfglow)" opacity="0.5"/>
+          <!-- Coat body â€” wider silhouette -->
+          <path d="M22 78 Q24 65 50 62 Q76 65 78 78 L82 148 Q61 154 50 154 Q39 154 18 148 Z" fill="url(#purfglow)" opacity="0.7"/>
+          <!-- Coat tails -->
+          <path d="M22 130 Q16 155 20 170" stroke="#c078e0" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.35"/>
+          <path d="M78 130 Q84 155 80 170" stroke="#c078e0" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.35"/>
+          <!-- Arms â€” theatrical gesture, one slightly raised -->
+          <path d="M22 82 Q10 105 14 135" stroke="#c078e0" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <path d="M78 82 Q90 95 86 120" stroke="#c078e0" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.5"/>
+          <!-- Neck + cravat suggestion -->
+          <rect x="44" y="58" width="12" height="10" rx="4" fill="url(#purfglow)" opacity="0.8"/>
+          <ellipse cx="50" cy="44" rx="20" ry="21" fill="url(#purfglow)" opacity="0.5"/>
+          <!-- Head â€” older, larger brow -->
+          <ellipse cx="50" cy="42" rx="21" ry="22" fill="url(#purfglow)" opacity="0.88" filter="url(#purfglow-f)"/>
+        </svg>
+      </div>
+      <div class="char-glow-ring" style="--char-glow:rgba(180,120,220,0.3)"></div>
+      <div class="char-name">Sir Purfluous</div>
+    </div>
+
+  </div><!-- /layer-characters -->
+
+  <!-- Layer 6: Foreground dressing -->
+  <div class="layer" id="layer-fg" data-depth="0.22">
+    <div class="fg-equipment-left"></div>
+    <div class="fg-equipment-right"></div>
+    <div class="mic-arm"><div class="mic-head"></div></div>
+  </div>
+
+  <!-- Layer 7: Light shafts -->
+  <div class="layer" id="layer-lighting" data-depth="0.0">
+    <div class="light-shaft main"></div>
+    <div class="light-shaft left"></div>
+    <div class="light-shaft right"></div>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- Overlays -->
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<!-- Upgrade to 3D badge -->
+<a class="upgrade-badge" href="stage_panoramic.html" title="Switch to 360Â° Panoramic Studio">
+  â—ˆ 360Â° PANORAMIC STAGE
+</a>
+
+<!-- â”€â”€ UI CHROME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+
+<!-- Chat -->
+<div class="chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-dot"></div>
+    â—† LIVE CHAT â—†
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-bar">
+    <input class="chat-input" id="chatInput" placeholder="Type a message..." maxlength="500">
+    <button class="chat-send" onclick="sendChat()">SEND</button>
+  </div>
+</div>
+
+<!-- Camera/view bar â€” parallax uses "view angles" not 3D cameras -->
+<div class="cam-bar" id="camBar"></div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div class="status-left">
+    <span class="rec-indicator">
+      <span class="rec-dot" id="recDot"></span>
+      <span id="recText">STANDBY</span>
+    </span>
+    <span class="cam-indicator" id="camLabel">VIEW: WIDE</span>
+    <span class="room-indicator" id="roomLabel">ROOM: STUDIO</span>
+  </div>
+  <div class="status-right">
+    <span id="timecode" style="color:#33ff99;opacity:0.4;font-size:0.6rem">00:00:00:00</span>
+    <button class="rec-btn" id="recBtn" onclick="toggleRecord()">â— REC</button>
+  </div>
+</div>
+
+<!-- â”€â”€ JAVASCRIPT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<script>
+'use strict';
+
+// â•â•â• PARALLAX ENGINE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+const layers = Array.from(document.querySelectorAll('.layer[data-depth]'));
+let mouseX = 0, mouseY = 0;
+let currentX = 0, currentY = 0;
+let raf = null;
+
+// Target offsets per layer (max Â±px at full mouse deflection)
+const MAX_SHIFT = 28;
+
+document.addEventListener('mousemove', e => {
+  mouseX = (e.clientX / window.innerWidth  - 0.5) * 2;  // -1 â€¦ +1
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+function tickParallax() {
+  // Smooth damp
+  currentX += (mouseX - currentX) * 0.06;
+  currentY += (mouseY - currentY) * 0.06;
+
+  layers.forEach(layer => {
+    const depth = parseFloat(layer.dataset.depth || 0);
+    const dx = currentX * MAX_SHIFT * depth;
+    const dy = currentY * MAX_SHIFT * depth * 0.5;
+    layer.style.transform = `translate(${-dx}px, ${-dy}px)`;
+  });
+
+  raf = requestAnimationFrame(tickParallax);
+}
+tickParallax();
+
+// â•â•â• AMBIENT LIGHT â€” mood-driven breathing â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+const halo = document.getElementById('ambientHalo');
+let moodColor = {r:229, g:193, b:126};   // default warm amber
+let targetMood = {r:229, g:193, b:126};
+
+function setMoodColor(state) {
+  // mood states map to light temperature shifts
+  const moods = {
+    warm:       {r:229, g:193, b:126},
+    theatrical: {r:200, g:150, b:220},
+    tense:      {r:180, g:100, b:80},
+    cool:       {r:109, g:214, b:199},
+    dark:       {r:80,  g:60,  b:40},
+    neutral:    {r:229, g:193, b:126},
+  };
+  targetMood = moods[state] || moods.neutral;
+}
+
+setInterval(() => {
+  // Lerp toward target mood color
+  moodColor.r += (targetMood.r - moodColor.r) * 0.02;
+  moodColor.g += (targetMood.g - moodColor.g) * 0.02;
+  moodColor.b += (targetMood.b - moodColor.b) * 0.02;
+  const {r,g,b} = moodColor;
+  halo.style.background = `radial-gradient(ellipse 100% 100% at 50% 50%,
+    rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},0.07) 0%,
+    rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},0.03) 40%,
+    transparent 70%)`;
+}, 50);
+
+// â•â•â• VIEW SYSTEM (parallax "cameras") â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+// Each view is a set of parallax offsets + zoom applied to the stage
+const VIEWS = {
+  wide:    {scale:1.0,    ox:0,     oy:0},
+  medium:  {scale:1.12,   ox:0.15,  oy:0.04},
+  close:   {scale:1.28,   ox:0.05,  oy:-0.06},
+  left:    {scale:1.08,   ox:-0.18, oy:0},
+  right:   {scale:1.08,   ox:0.18,  oy:0},
+  high:    {scale:0.88,   ox:0,     oy:-0.12},
+};
+
+let activeView = 'wide';
+
+const stage = document.getElementById('stage');
+let viewScale = 1.0, viewOX = 0, viewOY = 0;
+let currentScale = 1.0, currentOX = 0, currentOY = 0;
+
+// Blend view transitions
+setInterval(() => {
+  const v = VIEWS[activeView] || VIEWS.wide;
+  viewScale = v.scale; viewOX = v.ox; viewOY = v.oy;
+  currentScale += (viewScale - currentScale) * 0.04;
+  currentOX    += (viewOX    - currentOX)    * 0.04;
+  currentOY    += (viewOY    - currentOY)    * 0.04;
+  stage.style.transform = `scale(${currentScale}) translate(${currentOX*100}%, ${currentOY*100}%)`;
+  stage.style.transformOrigin = 'center center';
+}, 16);
+
+function switchView(name) {
+  if (!VIEWS[name]) return;
+  activeView = name;
+  document.getElementById('camLabel').textContent = 'VIEW: ' + name.toUpperCase();
+  buildCamBar();
+}
+window.switchCamera = switchView;  // back-compat for WS camera_switch events
+
+function buildCamBar() {
+  const bar = document.getElementById('camBar');
+  bar.innerHTML = '';
+  Object.keys(VIEWS).forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'cam-btn' + (activeView === name ? ' active' : '');
+    btn.textContent = name.toUpperCase();
+    btn.onclick = () => switchView(name);
+    bar.appendChild(btn);
+  });
+}
+buildCamBar();
+
+// â•â•â• RECORDING â€” captures the full stage as video â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+// We use getDisplayMedia-style capture of a hidden canvas that composites
+// all DOM layers. Fallback: instruct user to screen-record.
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+
+// Build a compositing canvas from the current stage DOM state
+function buildCompositeCanvas() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+window.toggleRecord = function() {
+  if (isRecording) {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    isRecording = false;
+    document.getElementById('recDot').classList.remove('on');
+    document.getElementById('recText').textContent = 'STANDBY';
+    document.getElementById('recBtn').classList.remove('on');
+    document.getElementById('recBtn').textContent = 'â— REC';
+  } else {
+    recordedChunks = [];
+    // Try to capture the body as a video stream via captureStream on a canvas
+    // The DOM-based stage can't use canvas.captureStream directly â€”
+    // use html2canvas approach or instruct OBS/screen capture for production.
+    // For dev: alert and fall back to OBS guidance.
+    const supported = typeof window.MediaRecorder !== 'undefined';
+    if (!supported) {
+      alert('MediaRecorder not supported in this browser. Use OBS for recording.');
+      return;
+    }
+    // Create an offscreen canvas and stream it â€” stage content mirrored via requestAnimationFrame
+    const canvas = buildCompositeCanvas();
+    const ctx = canvas.getContext('2d');
+    const stream = canvas.captureStream(30);
+
+    // Mirror loop â€” draws a screenshot via CSS painting (limited fidelity)
+    // For full-fidelity recording, OBS virtual camera or screen capture is recommended
+    function mirrorFrame() {
+      if (!isRecording) return;
+      // Simple color fill so recording isn't blank â€” real content needs OBS
+      ctx.fillStyle = '#0d0b09';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = 'rgba(212,168,75,0.1)';
+      ctx.font = '14px Courier Prime';
+      ctx.textAlign = 'center';
+      ctx.fillText('PUBCAST AI â€” LIVE', canvas.width/2, canvas.height/2);
+      requestAnimationFrame(mirrorFrame);
+    }
+
+    try {
+      mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, {type:'video/webm'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pubcast_${Date.now()}.webm`; a.click();
+        URL.revokeObjectURL(url);
+      };
+      mediaRecorder.start(100);
+      isRecording = true;
+      mirrorFrame();
+      document.getElementById('recDot').classList.add('on');
+      document.getElementById('recText').textContent = 'â— RECORDING';
+      document.getElementById('recBtn').classList.add('on');
+      document.getElementById('recBtn').textContent = 'â—¼ STOP';
+    } catch(e) {
+      alert('Recording failed. Use OBS screen capture for production recording.');
+    }
+  }
+};
+
+// â•â•â• WEBSOCKET â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+let ws = null;
+const ROOM = new URLSearchParams(location.search).get('room') || 'studio';
+document.getElementById('roomLabel').textContent = 'ROOM: ' + ROOM.toUpperCase();
+
+function connectWS() {
+  try {
+    ws = new WebSocket(`ws://${location.host}/ws/${ROOM}`);
+    ws.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'chat' && msg.payload) {
+          addChatMessage(msg.payload.user || 'Anon', msg.payload.text || '', msg.payload.user_id);
+        } else if (msg.type === 'history' && msg.payload) {
+          msg.payload.forEach(m => addChatMessage(m.user || 'Anon', m.text || '', m.user_id));
+        } else if (msg.type === 'say') {
+          // Bot utterance via SayEvent schema â€” show in chat panel
+          const who = msg.participant_id || 'Bot';
+          const text = msg.text || '';
+          if (text) addChatMessage(who, text, msg.participant_id);
+        } else if (msg.type === 'stream_chunk') {
+          // Streaming bot token â€” append to the last bot message or open a new one
+          const chunk = msg.chunk || '';
+          const botId = msg.participant_id || 'bot';
+          if (chunk) appendStreamChunk(botId, chunk);
+        } else if (msg.type === 'camera_switch' && msg.payload) {
+          if (msg.payload.target === 'program') {
+            const map = {wide_shot:'wide', medium_shot:'medium', close_up:'close',
+                         overhead:'high', stage_left:'left', stage_right:'right'};
+            const v = map[msg.payload.source_id] || msg.payload.source_id;
+            switchView(v);
+          }
+        } else if (msg.type === 'mood_change' && msg.payload) {
+          setMoodColor(msg.payload.state || 'neutral');
+        } else if (msg.type === 'skin_color_changed' && msg.payload) {
+          // Avatar ethereal color changed â€” update stage if character matches
+          setMoodColor(msg.payload.color_name || msg.payload.state || 'neutral');
+        } else if (msg.type === 'lighting_preset' && msg.payload) {
+          // Lighting changed â€” subtle body class for CSS theming
+          document.body.dataset.lighting = msg.payload.preset || 'normal';
+        } else if (msg.type === 'production_state' && msg.payload) {
+          // Update room label if room changed
+          if (msg.payload.current_room) {
+            document.getElementById('roomLabel').textContent =
+              'ROOM: ' + msg.payload.current_room.toUpperCase();
+          }
+        } else if (msg.type === 'done') {
+          closeStreamChunk(msg.participant_id || '');
+        } else if (msg.type === 'production_panic') {
+          // Panic: fade to black
+          document.body.style.filter = 'brightness(0)';
+          setTimeout(() => { document.body.style.filter = ''; }, 3000);
+        }
+      } catch {}
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch {}
+}
+
+window.sendChat = function() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({type:'chat', user:'Director', text, user_id:'director'}));
+  input.value = '';
+};
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') window.sendChat();
+});
+
+function addChatMessage(user, text, userId) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  const isBot = userId && (userId.startsWith('bot-') || userId.startsWith('agent:'));
+  const escaped = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  div.innerHTML = `<span class="${isBot?'bot':'user'}">${user}:</span> <span class="text">${escaped}</span>`;
+  const container = document.getElementById('chatMessages');
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// appendStreamChunk â€” appends a streaming token to the last open bot message,
+// or creates a new one if none exists for this botId.
+const _streamDivs = {};
+function appendStreamChunk(botId, chunk) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  let div = _streamDivs[botId];
+  if (!div || !container.contains(div)) {
+    div = document.createElement('div');
+    div.className = 'chat-msg';
+    const label = botId.replace(/^bot-/, '').replace(/_/g, ' ');
+    div.innerHTML = `<span class="bot">${label}:</span> <span class="text stream-text"></span>`;
+    container.appendChild(div);
+    _streamDivs[botId] = div;
+  }
+  const textSpan = div.querySelector('.stream-text');
+  if (textSpan) {
+    textSpan.textContent += chunk;
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+// Clear a bot's open stream div when the 'done' event arrives
+function closeStreamChunk(botId) {
+  delete _streamDivs[botId];
+}
+
+// â•â•â• TIMECODE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+setInterval(() => {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const frames = Math.floor((now.getMilliseconds() / 1000) * 30);
+  document.getElementById('timecode').textContent =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}:${pad(frames)}`;
+  document.getElementById('clock-feed').textContent =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}, 100);
+
+// â•â•â• KEYBOARD â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const viewKeys = {'1':'wide','2':'medium','3':'close','4':'left','5':'right','6':'high'};
+  if (viewKeys[e.key]) { switchView(viewKeys[e.key]); return; }
+  if (e.key === 'r' || e.key === 'R') window.toggleRecord();
+});
+
+// â•â•â• BOOT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+connectWS();
+</script>
+</body>
+</html>

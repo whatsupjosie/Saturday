@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PubCast AI — 3D Studio (Experimental)</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:rgba(212,168,75,1);--gold-dim:rgba(212,168,75,0.18);
+  --teal:#6dd6c7;--cream:#e8dfc8;--ink:#0d0b09;
+  --amber:#e5c17e;--warm-mid:#a09070;--red-rec:#ff2222;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--ink)}
+body{font-family:'Courier Prime',monospace;color:var(--cream)}
+#stage-canvas{position:fixed;inset:0;z-index:0}
+
+/* Experimental banner */
+.exp-banner{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:30;
+  background:rgba(10,8,6,0.9);border:1px solid rgba(255,34,34,0.3);
+  border-top:none;padding:3px 16px;
+  font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:3px;
+  color:rgba(255,34,34,0.6);text-transform:uppercase;
+}
+.back-badge{
+  position:fixed;top:10px;left:14px;z-index:30;
+  background:rgba(10,8,6,0.85);border:1px solid var(--gold-dim);
+  padding:5px 12px;font-family:'Cinzel',serif;font-size:0.52rem;
+  letter-spacing:2px;color:rgba(212,168,75,0.5);cursor:pointer;
+  transition:all .2s;text-decoration:none;display:block;
+  backdrop-filter:blur(4px);
+}
+.back-badge:hover{border-color:var(--amber);color:var(--amber)}
+
+.chat-panel{
+  position:fixed;right:0;top:0;bottom:80px;width:300px;z-index:20;
+  background:rgba(10,8,6,0.88);border-left:1px solid var(--gold-dim);
+  display:flex;flex-direction:column;backdrop-filter:blur(8px);
+}
+.chat-header{
+  padding:10px 14px;border-bottom:1px solid var(--gold-dim);
+  font-family:'Cinzel',serif;font-size:0.65rem;font-weight:700;
+  letter-spacing:4px;color:var(--amber);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.chat-header-dot{width:5px;height:5px;border-radius:50%;background:var(--teal);box-shadow:0 0 6px var(--teal);animation:led-pulse 2s ease-in-out infinite}
+@keyframes led-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.chat-messages{flex:1;overflow-y:auto;padding:8px 10px;font-size:.72rem;line-height:1.6;scrollbar-width:thin;scrollbar-color:rgba(212,168,75,.2) transparent}
+.chat-msg{margin-bottom:5px}
+.chat-msg .user{color:var(--teal);font-weight:700}
+.chat-msg .bot{color:var(--amber);font-weight:700}
+.chat-msg .text{color:var(--warm-mid)}
+.chat-input-bar{display:flex;gap:4px;padding:8px;border-top:1px solid var(--gold-dim)}
+.chat-input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--gold-dim);color:var(--cream);padding:7px 10px;font-family:'Courier Prime',monospace;font-size:.72rem;outline:none;transition:border-color .2s}
+.chat-input:focus{border-color:var(--teal)}
+.chat-send{background:var(--gold-dim);border:1px solid rgba(212,168,75,.3);color:var(--amber);padding:7px 12px;cursor:pointer;font-family:'Cinzel',serif;font-size:.58rem;font-weight:700;letter-spacing:1px;transition:background .15s}
+.chat-send:hover{background:rgba(212,168,75,.28)}
+.cam-bar{position:fixed;bottom:40px;left:0;right:300px;z-index:20;display:flex;justify-content:center;gap:4px;padding:5px 8px;background:rgba(8,7,5,.85);border-top:1px solid var(--gold-dim)}
+.cam-btn{padding:5px 14px;border:1px solid var(--gold-dim);background:rgba(0,0,0,.4);color:var(--warm-mid);font-family:'Cinzel',serif;font-size:.55rem;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .12s;text-transform:uppercase}
+.cam-btn:hover{border-color:var(--amber);color:var(--amber)}
+.cam-btn.active{border-color:var(--red-rec);color:var(--red-rec);background:rgba(255,34,34,.08)}
+.status-bar{position:fixed;bottom:0;left:0;right:0;height:40px;z-index:20;background:rgba(8,7,5,.92);border-top:1px solid var(--gold-dim);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:.62rem;letter-spacing:1.5px}
+.status-left,.status-right{display:flex;gap:14px;align-items:center}
+.rec-indicator{display:flex;align-items:center;gap:5px;color:var(--red-rec)}
+.rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red-rec);display:none}
+.rec-dot.on{display:block;animation:blink .7s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.cam-indicator{color:var(--amber)}
+.room-indicator{color:var(--teal)}
+.rec-btn{background:rgba(255,34,34,.12);border:1px solid rgba(255,34,34,.3);color:var(--red-rec);padding:5px 12px;cursor:pointer;font-family:'Cinzel',serif;font-size:.55rem;font-weight:700;letter-spacing:1px;transition:background .15s}
+.rec-btn:hover,.rec-btn.on{background:rgba(255,34,34,.25)}
+</style>
+</head>
+<body>
+
+<canvas id="stage-canvas"></canvas>
+
+<div class="exp-banner">◈ 3D STUDIO — EXPERIMENTAL</div>
+<a class="back-badge" href="stage.html">← 2.5D STAGE</a>
+
+<div class="chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-dot"></div>◆ LIVE CHAT ◆
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-bar">
+    <input class="chat-input" id="chatInput" placeholder="Type a message..." maxlength="500">
+    <button class="chat-send" onclick="sendChat()">SEND</button>
+  </div>
+</div>
+
+<div class="cam-bar" id="camBar"></div>
+
+<div class="status-bar">
+  <div class="status-left">
+    <span class="rec-indicator"><span class="rec-dot" id="recDot"></span><span id="recText">STANDBY</span></span>
+    <span class="cam-indicator" id="camLabel">CAM: WIDE</span>
+    <span class="room-indicator" id="roomLabel">ROOM: STUDIO</span>
+  </div>
+  <div class="status-right">
+    <span id="timecode" style="color:#33ff99;opacity:0.4;font-size:.6rem">00:00:00:00</span>
+    <button class="rec-btn" id="recBtn" onclick="toggleRecord()">● REC</button>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ═══ RENDERER ══════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('stage-canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false, powerPreference:'low-power'});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));  // cap for Zoidberg
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080604);
+scene.fog = new THREE.FogExp2(0x080604, 0.028);
+
+// ═══ CAMERAS ═══════════════════════════════════════════════════════════════
+
+const cameras = {
+  wide:    new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 80),
+  medium:  new THREE.PerspectiveCamera(48, window.innerWidth/window.innerHeight, 0.1, 80),
+  close:   new THREE.PerspectiveCamera(32, window.innerWidth/window.innerHeight, 0.1, 80),
+  overhead:new THREE.PerspectiveCamera(80, window.innerWidth/window.innerHeight, 0.1, 80),
+  stage:   new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 80),
+};
+cameras.wide.position.set(0, 2.2, 7);    cameras.wide.lookAt(0, 1.2, 0);
+cameras.medium.position.set(2, 1.8, 4);  cameras.medium.lookAt(0, 1.4, 0);
+cameras.close.position.set(0.8, 1.7, 2.2); cameras.close.lookAt(0, 1.5, 0);
+cameras.overhead.position.set(0, 7, 1);  cameras.overhead.lookAt(0, 0, 0);
+cameras.stage.position.set(-2.5, 2, 4.5); cameras.stage.lookAt(0.5, 1, 0);
+
+// Smooth camera interpolation targets
+let activeCam = cameras.wide, activeCamName = 'wide';
+let camPos = new THREE.Vector3().copy(cameras.wide.position);
+let camTarget = new THREE.Vector3(0, 1.2, 0);
+let camFOV = cameras.wide.fov;
+
+// ═══ LIGHTING — animated, mood-responsive ══════════════════════════════════
+
+// Warm ambient
+const ambient = new THREE.AmbientLight(0x100c08, 0.35);
+scene.add(ambient);
+
+// Key light — above-right, warm tungsten
+const keyLight = new THREE.SpotLight(0xffe4b5, 1.8, 22, Math.PI/3.5, 0.4, 1.2);
+keyLight.position.set(3.5, 6, 3);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 1024;
+keyLight.shadow.mapSize.height = 1024;
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 20;
+scene.add(keyLight);
+
+// Fill light — left, cool-teal (broadcast feel)
+const fillLight = new THREE.PointLight(0x6dd6c7, 0.35, 12);
+fillLight.position.set(-3.5, 3, 2);
+scene.add(fillLight);
+
+// Back light / rim — amber separation
+const rimLight = new THREE.SpotLight(0xe5c17e, 0.9, 14, Math.PI/2.8, 0.6, 1.5);
+rimLight.position.set(0, 5, -3.5);
+scene.add(rimLight);
+
+// Floor bounce — very subtle warm
+const bounceLight = new THREE.PointLight(0x2a1a08, 0.18, 6);
+bounceLight.position.set(0, 0.05, 0);
+scene.add(bounceLight);
+
+// Mood state target for light color interpolation
+let moodTargetColor = new THREE.Color(0xffe4b5);
+let moodCurrentColor = new THREE.Color(0xffe4b5);
+
+const MOOD_COLORS = {
+  warm:       new THREE.Color(0xffe4b5),
+  theatrical: new THREE.Color(0xd4a0ff),
+  tense:      new THREE.Color(0xff8060),
+  cool:       new THREE.Color(0x88ddcc),
+  dark:       new THREE.Color(0x604030),
+  neutral:    new THREE.Color(0xffe4b5),
+};
+
+window.setMoodColor = function(state) {
+  moodTargetColor = MOOD_COLORS[state] || MOOD_COLORS.neutral;
+};
+
+// ═══ GEOMETRY — Belle Époque Studio ═══════════════════════════════════════
+
+// Studio floor — dark polished wood planks suggestion
+const floorGeo = new THREE.PlaneGeometry(16, 14);
+const floorMat = new THREE.MeshStandardMaterial({
+  color:0x18120a, roughness:0.75, metalness:0.08,
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI/2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Stage platform — circular riser
+const platformGeo = new THREE.CylinderGeometry(3, 3.3, 0.14, 48);
+const platformMat = new THREE.MeshStandardMaterial({color:0x22180e, roughness:0.55, metalness:0.15});
+const platform = new THREE.Mesh(platformGeo, platformMat);
+platform.position.set(0, 0.07, 0);
+platform.receiveShadow = true;
+scene.add(platform);
+
+// Back wall — painted, architectural
+const backWallGeo = new THREE.PlaneGeometry(14, 7);
+const backWallMat = new THREE.MeshStandardMaterial({color:0x0e0b07, roughness:0.92});
+const backWall = new THREE.Mesh(backWallGeo, backWallMat);
+backWall.position.set(0, 3.5, -4.5);
+backWall.receiveShadow = true;
+scene.add(backWall);
+
+// Arch frame above stage — decorative
+const archCurve = new THREE.QuadraticBezierCurve3(
+  new THREE.Vector3(-2.5, 3, -4.3),
+  new THREE.Vector3(0, 5.5, -4.3),
+  new THREE.Vector3(2.5, 3, -4.3),
+);
+const archPoints = archCurve.getPoints(32);
+const archGeo = new THREE.BufferGeometry().setFromPoints(archPoints);
+const archMat = new THREE.LineBasicMaterial({color:0x3a2a14, opacity:0.6, transparent:true});
+const archLine = new THREE.Line(archGeo, archMat);
+scene.add(archLine);
+
+// Broadcast desk — dark mahogany form
+function makeDesk() {
+  const g = new THREE.Group();
+  const topGeo = new THREE.BoxGeometry(3.2, 0.08, 0.7);
+  const topMat = new THREE.MeshStandardMaterial({color:0x2e1e0e, roughness:0.6, metalness:0.1});
+  const top = new THREE.Mesh(topGeo, topMat);
+  top.position.y = 0.8;
+  top.castShadow = true; top.receiveShadow = true;
+  g.add(top);
+  // Front face
+  const frontGeo = new THREE.BoxGeometry(3.2, 0.76, 0.06);
+  const frontMat = new THREE.MeshStandardMaterial({color:0x221608, roughness:0.7, metalness:0.05});
+  const front = new THREE.Mesh(frontGeo, frontMat);
+  front.position.set(0, 0.42, 0.37);
+  front.castShadow = true;
+  g.add(front);
+  // Gold trim strip on front top edge
+  const trimGeo = new THREE.BoxGeometry(3.2, 0.02, 0.03);
+  const trimMat = new THREE.MeshStandardMaterial({color:0xd4a84b, roughness:0.3, metalness:0.8});
+  const trim = new THREE.Mesh(trimGeo, trimMat);
+  trim.position.set(0, 0.85, 0.35);
+  g.add(trim);
+  g.position.set(0, 0.14, -0.9);
+  return g;
+}
+const desk = makeDesk();
+scene.add(desk);
+
+// Monitor bank — back wall mounted
+function makeMonitor(w, h, color, emissive) {
+  const g = new THREE.Group();
+  const frameGeo = new THREE.BoxGeometry(w+0.04, h+0.04, 0.04);
+  const frameMat = new THREE.MeshStandardMaterial({color:0x1a1208, roughness:0.5, metalness:0.4});
+  g.add(new THREE.Mesh(frameGeo, frameMat));
+  const screenGeo = new THREE.PlaneGeometry(w, h);
+  const screenMat = new THREE.MeshStandardMaterial({
+    color: color || 0x080c10,
+    emissive: emissive || 0x001020,
+    emissiveIntensity:0.4,
+    roughness:0.1, metalness:0,
+  });
+  const screen = new THREE.Mesh(screenGeo, screenMat);
+  screen.position.z = 0.025;
+  g.add(screen);
+  return {group:g, screen, screenMat};
+}
+
+const pgmMon = makeMonitor(0.9, 0.6, 0x080808, 0x220000);
+pgmMon.group.position.set(-1.2, 3.8, -4.35);
+scene.add(pgmMon.group);
+
+const pvwMon = makeMonitor(0.9, 0.6, 0x080808, 0x002200);
+pvwMon.group.position.set(0, 3.8, -4.35);
+scene.add(pvwMon.group);
+
+const auxMon = makeMonitor(0.6, 0.4, 0x080808, 0x080808);
+auxMon.group.position.set(1.1, 3.8, -4.35);
+scene.add(auxMon.group);
+
+// Lighting rig — horizontal bar with practicals
+const rigGeo = new THREE.CylinderGeometry(0.02, 0.02, 10, 8);
+const rigMat = new THREE.MeshStandardMaterial({color:0x1a1510, roughness:0.8, metalness:0.6});
+const rig = new THREE.Mesh(rigGeo, rigMat);
+rig.rotation.z = Math.PI/2;
+rig.position.set(0, 5.2, -1);
+scene.add(rig);
+
+// Practicals hanging from rig
+function makePractical(x) {
+  const g = new THREE.Group();
+  const hoodGeo = new THREE.ConeGeometry(0.12, 0.2, 8);
+  const hoodMat = new THREE.MeshStandardMaterial({color:0x1a1208, roughness:0.7, metalness:0.5});
+  g.add(new THREE.Mesh(hoodGeo, hoodMat));
+  const bulbGeo = new THREE.SphereGeometry(0.04, 8, 8);
+  const bulbMat = new THREE.MeshStandardMaterial({emissive:0xffe4b5, emissiveIntensity:2, color:0x000000});
+  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+  bulb.position.y = -0.14;
+  g.add(bulb);
+  g.position.set(x, 5.0, -1);
+  return g;
+}
+[-2.5, -1.2, 0, 1.2, 2.5].forEach(x => scene.add(makePractical(x)));
+
+// ═══ CHARACTER FIGURES — luminous silhouettes with material depth ═══════════
+
+function makeCharacter(opts) {
+  const {x, z, primaryColor, accentColor, name, scale} = opts;
+  const s = scale || 1;
+  const g = new THREE.Group();
+
+  const charMat = new THREE.MeshStandardMaterial({
+    color: primaryColor,
+    emissive: primaryColor,
+    emissiveIntensity: 0.2,
+    transparent: true,
+    opacity: 0.82,
+    roughness: 0.5,
+    metalness: 0.1,
+  });
+
+  // Legs
+  [[-.1, 0], [.1, 0]].forEach(([lx]) => {
+    const geo = new THREE.CylinderGeometry(0.07*s, 0.08*s, 0.75*s, 10);
+    const m = new THREE.Mesh(geo, charMat);
+    m.position.set(lx*s, 0.38*s, 0);
+    m.castShadow = true;
+    g.add(m);
+  });
+
+  // Torso
+  const torsoGeo = new THREE.CylinderGeometry(0.18*s, 0.16*s, 0.65*s, 12);
+  const torso = new THREE.Mesh(torsoGeo, charMat);
+  torso.position.set(0, 1.05*s, 0);
+  torso.castShadow = true;
+  g.add(torso);
+
+  // Arms
+  [[-1,0.08], [1,-0.08]].forEach(([side, tilt]) => {
+    const geo = new THREE.CylinderGeometry(0.05*s, 0.04*s, 0.55*s, 8);
+    const m = new THREE.Mesh(geo, charMat);
+    m.position.set(0.26*side*s, 0.95*s, 0);
+    m.rotation.z = (Math.PI/5 + tilt) * side;
+    m.castShadow = true;
+    g.add(m);
+  });
+
+  // Neck
+  const neckGeo = new THREE.CylinderGeometry(0.065*s, 0.07*s, 0.12*s, 8);
+  g.add(new THREE.Mesh(neckGeo, charMat)).position?.set(0, 1.44*s, 0);
+
+  // Head
+  const headGeo = new THREE.SphereGeometry(0.17*s, 16, 16);
+  const head = new THREE.Mesh(headGeo, new THREE.MeshStandardMaterial({
+    color: primaryColor,
+    emissive: primaryColor,
+    emissiveIntensity: 0.35,
+    transparent: true, opacity: 0.9,
+    roughness: 0.4, metalness: 0.05,
+  }));
+  head.position.set(0, 1.66*s, 0);
+  head.castShadow = true;
+  g.add(head);
+
+  // Glow ring at feet
+  const ringGeo = new THREE.RingGeometry(0.25*s, 0.42*s, 32);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: accentColor || primaryColor,
+    transparent: true, opacity: 0.12,
+    side: THREE.DoubleSide,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = 0.01;
+  g.add(ring);
+
+  // Point light — character emits subtle fill
+  const charLight = new THREE.PointLight(primaryColor, 0.3, 4);
+  charLight.position.set(0, 1.2*s, 0.3);
+  g.add(charLight);
+
+  g.position.set(x, 0.14, z);
+  g.userData = {name, ring, ringMat, charLight, head, primaryColor, accentColor, breathPhase: Math.random()*Math.PI*2};
+  scene.add(g);
+  return g;
+}
+
+const pete = makeCharacter({
+  x:-1.4, z: 0.3,
+  primaryColor: 0x4dc8aa,
+  accentColor:  0x6dd6c7,
+  name: 'Pete', scale: 1.0,
+});
+
+const purfluous = makeCharacter({
+  x: 1.4, z: 0.2,
+  primaryColor: 0xb064d8,
+  accentColor:  0xc078e0,
+  name: 'Sir Purfluous', scale: 1.08,
+});
+
+const hostSlot = makeCharacter({
+  x: 0, z:-0.1,
+  primaryColor: 0xd4a84b,
+  accentColor:  0xe5c17e,
+  name: 'Host', scale: 1.02,
+});
+hostSlot.visible = false;  // hidden until a host joins
+
+// ═══ ANIMATION LOOP ════════════════════════════════════════════════════════
+
+const clock = new THREE.Clock();
+let lerpCamProgress = 0;
+let lerpCamFrom = new THREE.Vector3().copy(cameras.wide.position);
+let lerpCamTargetPos = new THREE.Vector3().copy(cameras.wide.position);
+let lerpCamFromTarget = new THREE.Vector3(0,1.2,0);
+let lerpCamToTarget = new THREE.Vector3(0,1.2,0);
+let isTransitioning = false;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = clock.getDelta ? 0.016 : 0.016;
+
+  // Breathing light animation — 2-3% intensity oscillation, 4.2s cycle
+  const breathe = 1 + Math.sin(t * (Math.PI*2/4.2)) * 0.025;
+  keyLight.intensity  = 1.8 * breathe;
+  bounceLight.intensity = 0.18 * breathe;
+
+  // Mood color interpolation
+  moodCurrentColor.lerp(moodTargetColor, 0.01);
+  keyLight.color.copy(moodCurrentColor);
+
+  // Monitor flicker — very subtle
+  pgmMon.screenMat.emissiveIntensity = 0.4 + Math.sin(t*7.3)*0.02;
+  pvwMon.screenMat.emissiveIntensity = 0.35 + Math.sin(t*6.1+1)*0.015;
+
+  // Character breathing + glow ring pulse
+  [pete, purfluous, hostSlot].forEach((char, i) => {
+    if (!char.visible) return;
+    const {ring, ringMat, charLight, breathPhase} = char.userData;
+    const b = Math.sin(t * 1.35 + breathPhase);
+    char.children.forEach((child, ci) => {
+      if (ci < 3) { // legs
+        child.position.y = child.position.y; // static
+      }
+    });
+    // Subtle upward bob
+    char.position.y = 0.14 + b * 0.012;
+    // Ring pulse
+    if (ringMat) ringMat.opacity = 0.10 + b * 0.04;
+    // Character point light pulse
+    if (charLight) charLight.intensity = 0.28 + b * 0.08;
+  });
+
+  // Camera smooth transition
+  if (isTransitioning) {
+    lerpCamProgress = Math.min(1, lerpCamProgress + 0.025);
+    const ease = lerpCamProgress < 0.5
+      ? 2 * lerpCamProgress * lerpCamProgress
+      : -1 + (4 - 2 * lerpCamProgress) * lerpCamProgress;
+
+    activeCam.position.lerpVectors(lerpCamFrom, lerpCamTargetPos, ease);
+    const lt = new THREE.Vector3().lerpVectors(lerpCamFromTarget, lerpCamToTarget, ease);
+    activeCam.lookAt(lt);
+
+    if (lerpCamProgress >= 1) {
+      isTransitioning = false;
+      activeCam.position.copy(lerpCamTargetPos);
+      activeCam.lookAt(lerpCamToTarget);
+    }
+  }
+
+  renderer.render(scene, activeCam);
+}
+animate();
+
+// ═══ CAMERA SWITCHING — with smooth interpolation ══════════════════════════
+
+const CAM_TARGETS = {
+  wide:    new THREE.Vector3(0, 1.2, 0),
+  medium:  new THREE.Vector3(0, 1.4, 0),
+  close:   new THREE.Vector3(0, 1.5, 0),
+  overhead:new THREE.Vector3(0, 0, 0),
+  stage:   new THREE.Vector3(0.5, 1, 0),
+};
+
+function switchCamera(name) {
+  if (!cameras[name]) return;
+  lerpCamFrom.copy(activeCam.position);
+  lerpCamFromTarget.copy(lerpCamToTarget);
+  lerpCamTargetPos.copy(cameras[name].position);
+  lerpCamToTarget.copy(CAM_TARGETS[name] || new THREE.Vector3(0,1.2,0));
+  activeCam = cameras[name];
+  activeCamName = name;
+  lerpCamProgress = 0;
+  isTransitioning = true;
+  activeCam.fov = cameras[name].fov;
+  activeCam.updateProjectionMatrix();
+  document.getElementById('camLabel').textContent = 'CAM: ' + name.toUpperCase();
+  buildCamBar();
+}
+window.switchCamera = switchCamera;
+
+function buildCamBar() {
+  const bar = document.getElementById('camBar');
+  bar.innerHTML = '';
+  Object.keys(cameras).forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'cam-btn' + (activeCamName === name ? ' active' : '');
+    btn.textContent = name.toUpperCase();
+    btn.onclick = () => switchCamera(name);
+    bar.appendChild(btn);
+  });
+}
+buildCamBar();
+
+// ═══ RECORDING ═════════════════════════════════════════════════════════════
+
+let isRecording = false, mediaRecorder = null, recordedChunks = [];
+
+window.toggleRecord = function() {
+  if (isRecording) {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    isRecording = false;
+    document.getElementById('recDot').classList.remove('on');
+    document.getElementById('recText').textContent = 'STANDBY';
+    document.getElementById('recBtn').classList.remove('on');
+    document.getElementById('recBtn').textContent = '● REC';
+  } else {
+    recordedChunks = [];
+    const stream = canvas.captureStream(30);
+    try {
+      mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, {type:'video/webm'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pubcast3d_${Date.now()}.webm`; a.click();
+        URL.revokeObjectURL(url);
+      };
+      mediaRecorder.start(100);
+      isRecording = true;
+      document.getElementById('recDot').classList.add('on');
+      document.getElementById('recText').textContent = '● RECORDING';
+      document.getElementById('recBtn').classList.add('on');
+      document.getElementById('recBtn').textContent = '◼ STOP';
+    } catch(e) {
+      alert('Recording error: ' + e.message);
+    }
+  }
+};
+
+// ═══ WEBSOCKET ═════════════════════════════════════════════════════════════
+
+let ws = null;
+const ROOM = new URLSearchParams(location.search).get('room') || 'studio';
+document.getElementById('roomLabel').textContent = 'ROOM: ' + ROOM.toUpperCase();
+
+function connectWS() {
+  try {
+    ws = new WebSocket(`ws://${location.host}/ws/${ROOM}`);
+    ws.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'chat' && msg.payload) {
+          addChatMessage(msg.payload.user||'Anon', msg.payload.text||'', msg.payload.user_id);
+        } else if (msg.type === 'history' && msg.payload) {
+          msg.payload.forEach(m => addChatMessage(m.user||'Anon', m.text||'', m.user_id));
+        } else if (msg.type === 'camera_switch' && msg.payload) {
+          if (msg.payload.target === 'program') {
+            const map = {wide_shot:'wide',medium_shot:'medium',close_up:'close',overhead:'overhead'};
+            switchCamera(map[msg.payload.source_id] || msg.payload.source_id);
+          }
+        } else if (msg.type === 'mood_change' && msg.payload) {
+          window.setMoodColor(msg.payload.state || 'neutral');
+        }
+      } catch {}
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch {}
+}
+
+window.sendChat = function() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({type:'chat', user:'Director', text, user_id:'director'}));
+  input.value = '';
+};
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') window.sendChat();
+});
+
+function addChatMessage(user, text, userId) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  const isBot = userId && (userId.startsWith('bot-') || userId.startsWith('agent:'));
+  const escaped = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  div.innerHTML = `<span class="${isBot?'bot':'user'}">${user}:</span> <span class="text">${escaped}</span>`;
+  const c = document.getElementById('chatMessages');
+  c.appendChild(div); c.scrollTop = c.scrollHeight;
+}
+
+// ═══ TIMECODE & KEYBOARD ═══════════════════════════════════════════════════
+
+setInterval(() => {
+  const now = new Date();
+  const p = n => String(n).padStart(2,'0');
+  const f = Math.floor((now.getMilliseconds()/1000)*30);
+  document.getElementById('timecode').textContent =
+    `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}:${p(f)}`;
+}, 100);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = {'1':'wide','2':'medium','3':'close','4':'overhead','5':'stage'};
+  if (k[e.key]) { switchCamera(k[e.key]); return; }
+  if (e.key==='r'||e.key==='R') window.toggleRecord();
+});
+
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  Object.values(cameras).forEach(cam => {
+    cam.aspect = window.innerWidth/window.innerHeight;
+    cam.updateProjectionMatrix();
+  });
+});
+
+connectWS();
+</script>
+</body>
+</html>

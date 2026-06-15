@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PubCast AI — Scene Builder</title>
+<style>
+  :root {
+    --bg:        #0a0b0f;
+    --surface:   #111318;
+    --surface2:  #181c24;
+    --border:    #252a36;
+    --accent:    #e8ff47;
+    --accent2:   #47c8ff;
+    --accent3:   #ff6b6b;
+    --purple:    #a855f7;
+    --text:      #e2e8f0;
+    --muted:     #6b7280;
+    --green:     #4ade80;
+    --orange:    #fb923c;
+    --mono:      Consolas, 'Courier New', monospace;
+    --sans:      Inter, Segoe UI, Arial, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(232,255,71,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,255,71,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-badge {
+    background: var(--purple);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .topbar-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    border-color: var(--accent);
+    background: rgba(232,255,71,0.05);
+  }
+
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  .btn.primary:hover {
+    background: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(232,255,71,0.3);
+  }
+
+  /* ── LAYOUT ── */
+  .builder-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 340px;
+    flex: 1;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  /* ── ASSET LIBRARY PANEL ── */
+  .asset-library {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .search-box {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .prompt-tools {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 8px;
+  }
+
+  .prompt-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+
+  .prompt-status {
+    min-height: 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .category-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .category-tab {
+    padding: 6px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .category-tab:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .category-tab.active {
+    background: rgba(232,255,71,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .asset-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .asset-card {
+    padding: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .asset-card:hover {
+    border-color: var(--accent2);
+    transform: translateX(4px);
+  }
+
+  .asset-card.selected {
+    border-color: var(--accent);
+    background: rgba(232,255,71,0.05);
+  }
+
+  .asset-name {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .asset-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .asset-quality {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(71,200,255,0.15);
+    color: var(--accent2);
+    border-radius: 3px;
+    font-size: 9px;
+    margin-left: 6px;
+  }
+
+  .asset-quality.fancy {
+    background: rgba(168,85,247,0.15);
+    color: var(--purple);
+  }
+
+  /* ── SCENE VIEWPORT ── */
+  .scene-viewport {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .viewport-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scene-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .scene-name {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .viewport-canvas {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a0b0f 0%, #1a1b1f 100%);
+    position: relative;
+  }
+
+  .canvas-placeholder {
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+
+  .canvas-placeholder .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+
+  /* ── SCENE PROPERTIES PANEL ── */
+  .scene-properties {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .property-section {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header {
+    padding: 12px 16px;
+    background: var(--surface2);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-header:hover {
+    background: rgba(232,255,71,0.05);
+  }
+
+  .section-content {
+    padding: 12px 16px;
+  }
+
+  .property-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .property-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .property-value {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .property-input {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .property-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .property-slider {
+    width: 100%;
+    margin: 8px 0;
+  }
+
+  /* ── INSTANCE LIST ── */
+  .instance-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .instance-item {
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+  }
+
+  .instance-item:hover {
+    border-color: var(--accent2);
+  }
+
+  .instance-item.selected {
+    border-color: var(--accent);
+    background: rgba(232,255,71,0.05);
+  }
+
+  .instance-info {
+    flex: 1;
+  }
+
+  .instance-name {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .instance-asset {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .instance-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .icon-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .icon-btn:hover {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+
+  /* ── PREFLIGHT STATUS ── */
+  .preflight-status {
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .status-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .status-icon {
+    font-size: 16px;
+  }
+
+  .status-label {
+    color: var(--muted);
+  }
+
+  .status-value {
+    margin-left: auto;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .status-value.ok { color: var(--green); }
+  .status-value.warning { color: var(--orange); }
+  .status-value.error { color: var(--accent3); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ── TOPBAR ── -->
+  <div class="topbar">
+    <div class="logo">
+      PubCast AI
+      <span class="logo-badge">SCENE BUILDER</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="SceneBuilder.newScene()">📄 New Scene</button>
+      <button class="btn" onclick="SceneBuilder.saveScene()">💾 Save Scene</button>
+      <button class="btn" onclick="SceneBuilder.loadScene()">📂 Load Scene</button>
+      <button class="btn primary" onclick="SceneBuilder.validateScene()">✓ Validate for Preflight</button>
+    </div>
+  </div>
+
+  <!-- ── BUILDER LAYOUT ── -->
+  <div class="builder-layout">
+    
+    <!-- ── ASSET LIBRARY ── -->
+    <div class="asset-library">
+      <div class="panel-header">
+        <span class="panel-title">Asset Library</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="assetCount">0 assets</span>
+      </div>
+      
+      <div class="search-box">
+        <input type="text" class="search-input" placeholder="Search assets..." id="assetSearch" oninput="SceneBuilder.filterAssets()">
+      </div>
+
+      <div class="prompt-tools">
+        <div class="panel-title">Text Prompt Set</div>
+        <div class="prompt-row">
+          <input type="text" class="search-input" placeholder="Describe a voxel set..." id="voxelPrompt" onkeydown="if(event.key==='Enter') SceneBuilder.generatePromptSet()">
+          <button class="btn primary" onclick="SceneBuilder.generatePromptSet()">Build</button>
+        </div>
+        <div class="prompt-status" id="promptStatus">Ready for prompt-generated voxel props</div>
+      </div>
+      
+      <div class="category-tabs" id="categoryTabs"></div>
+      
+      <div class="asset-list" id="assetList"></div>
+    </div>
+
+    <!-- ── SCENE VIEWPORT ── -->
+    <div class="scene-viewport">
+      <div class="viewport-toolbar">
+        <div class="scene-info">
+          <span class="scene-name" id="sceneName">Untitled Scene</span>
+          <span>|</span>
+          <span id="instanceCount">0 instances</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="SceneBuilder.resetCamera()">📷 Reset Camera</button>
+          <button class="btn" onclick="SceneBuilder.toggleGrid()">⊞ Grid</button>
+        </div>
+      </div>
+      
+      <div class="viewport-canvas" id="viewport">
+        <div class="canvas-placeholder">
+          <div class="icon">🎨</div>
+          <div>3D Viewport</div>
+          <div style="font-size:11px;margin-top:8px;">Drag assets from library to place in scene</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCENE PROPERTIES ── -->
+    <div class="scene-properties">
+      <div class="panel-header">
+        <span class="panel-title">Scene Properties</span>
+      </div>
+      
+      <!-- Preflight Status -->
+      <div class="preflight-status">
+        <div class="status-item">
+          <span class="status-icon">📦</span>
+          <span class="status-label">Assets:</span>
+          <span class="status-value ok" id="statusAssets">0 / 0</span>
+        </div>
+        <div class="status-item">
+          <span class="status-icon">💾</span>
+          <span class="status-label">Memory:</span>
+          <span class="status-value ok" id="statusMemory">0 MB</span>
+        </div>
+        <div class="status-item">
+          <span class="status-icon">⚡</span>
+          <span class="status-label">Performance:</span>
+          <span class="status-value ok" id="statusPerf">OK</span>
+        </div>
+      </div>
+      
+      <!-- Scene Instances -->
+      <div class="property-section">
+        <div class="section-header" onclick="SceneBuilder.toggleSection(this)">
+          Scene Instances
+          <span>▼</span>
+        </div>
+        <div class="instance-list" id="instanceList"></div>
+      </div>
+      
+      <!-- Environment -->
+      <div class="property-section">
+        <div class="section-header" onclick="SceneBuilder.toggleSection(this)">
+          Environment
+          <span>▼</span>
+        </div>
+        <div class="section-content">
+          <div class="property-row">
+            <span class="property-label">Ambient Light</span>
+          </div>
+          <input type="range" class="property-slider" min="0" max="1" step="0.1" value="0.3" id="ambientLight" oninput="SceneBuilder.updateAmbientLight(this.value)">
+          
+          <div class="property-row">
+            <span class="property-label">Fog Enabled</span>
+            <input type="checkbox" id="fogEnabled" onchange="SceneBuilder.updateFog()">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Camera -->
+      <div class="property-section">
+        <div class="section-header" onclick="SceneBuilder.toggleSection(this)">
+          Camera
+          <span>▼</span>
+        </div>
+        <div class="section-content">
+          <div class="property-row">
+            <span class="property-label">Position X</span>
+            <input type="number" class="property-input" value="0.0" step="0.1" id="camPosX">
+          </div>
+          <div class="property-row">
+            <span class="property-label">Position Y</span>
+            <input type="number" class="property-input" value="1.6" step="0.1" id="camPosY">
+          </div>
+          <div class="property-row">
+            <span class="property-label">Position Z</span>
+            <input type="number" class="property-input" value="5.0" step="0.1" id="camPosZ">
+          </div>
+        </div>
+      </div>
+      
+    </div>
+
+  </div>
+</div>
+
+<script>
+/**
+ * SCENE BUILDER - FRONTEND CONTROLLER
+ * Visual scene composition tool for PubCast AI voxel environments
+ */
+
+const SceneBuilder = {
+  // Asset catalog
+  assets: [],
+  assetCategories: ['furniture', 'home_structure', 'rooms', 'outdoor', 'vehicles', 'props'],
+  currentCategory: 'furniture',
+  
+  // Current scene
+  scene: {
+    scene_id: 'untitled_' + Date.now(),
+    name: 'Untitled Scene',
+    instances: [],
+    voxel_sets: [],
+    required_assets: new Set(),
+    ambient_light: 0.3,
+    fog_enabled: false,
+    camera_position: [0.0, 1.6, 5.0]
+  },
+  
+  selectedAsset: null,
+  selectedInstance: null,
+  
+  // Initialize
+  init: async function() {
+    console.log("🎨 Scene Builder initializing...");
+    
+    // Load asset library
+    await this.loadAssetLibrary();
+    
+    // Render UI
+    this.renderCategoryTabs();
+    this.renderAssetList();
+    this.updateStatus();
+    
+    console.log("✅ Scene Builder ready");
+  },
+  
+  // ─────────────────────────────────────────────
+  // ASSET LIBRARY
+  // ─────────────────────────────────────────────
+  
+  loadAssetLibrary: async function() {
+    try {
+      const response = await fetch('/api/voxel/assets');
+      if (response.ok) {
+        const payload = await response.json();
+        const apiAssets = (payload.assets || []).map(asset => ({
+          id: asset.asset_id || asset.id,
+          name: asset.name || asset.asset_id || 'Voxel Asset',
+          category: asset.category || 'props',
+          quality: asset.quality || 'standard'
+        })).filter(asset => asset.id);
+        if (apiAssets.length) {
+          this.assets = apiAssets;
+          this.assetCategories = [...new Set(apiAssets.map(asset => asset.category))];
+          this.currentCategory = this.assetCategories[0] || 'props';
+          document.getElementById('assetCount').textContent = `${this.assets.length} assets`;
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('Voxel asset API unavailable, using local fallback library', error);
+    }
+
+    // Local fallback library
+    this.assets = [
+      // Furniture - Standard
+      { id: 'furniture_standard_couch', name: 'Couch', category: 'furniture', quality: 'standard' },
+      { id: 'furniture_standard_chair', name: 'Chair', category: 'furniture', quality: 'standard' },
+      { id: 'furniture_standard_desk', name: 'Desk', category: 'furniture', quality: 'standard' },
+      { id: 'furniture_standard_bookshelf', name: 'Bookshelf', category: 'furniture', quality: 'standard' },
+      { id: 'furniture_standard_coffee_table', name: 'Coffee Table', category: 'furniture', quality: 'standard' },
+      
+      // Furniture - Fancy
+      { id: 'furniture_fancy_sectional_couch', name: 'Sectional Couch', category: 'furniture', quality: 'fancy' },
+      { id: 'furniture_fancy_leather_recliner', name: 'Leather Recliner', category: 'furniture', quality: 'fancy' },
+      
+      // Home Structure
+      { id: 'structure_standard_wall', name: 'Wall', category: 'home_structure', quality: 'standard' },
+      { id: 'structure_standard_window', name: 'Window', category: 'home_structure', quality: 'standard' },
+      { id: 'structure_standard_door', name: 'Door', category: 'home_structure', quality: 'standard' },
+      
+      // Rooms
+      { id: 'room_living_room', name: 'Living Room', category: 'rooms', quality: 'standard' },
+      { id: 'room_bedroom', name: 'Bedroom', category: 'rooms', quality: 'standard' },
+      { id: 'room_kitchen', name: 'Kitchen', category: 'rooms', quality: 'standard' },
+      
+      // Outdoor
+      { id: 'outdoor_standard_tree', name: 'Tree', category: 'outdoor', quality: 'standard' },
+      { id: 'outdoor_standard_fence', name: 'Fence', category: 'outdoor', quality: 'standard' },
+      
+      // Vehicles
+      { id: 'vehicle_standard_car', name: 'Car', category: 'vehicles', quality: 'standard' },
+      { id: 'vehicle_fancy_sports_car', name: 'Sports Car', category: 'vehicles', quality: 'fancy' },
+      
+      // Props
+      { id: 'prop_lamp', name: 'Lamp', category: 'props', quality: 'standard' },
+      { id: 'prop_phone', name: 'Phone', category: 'props', quality: 'standard' },
+      { id: 'prop_glass', name: 'Glass', category: 'props', quality: 'standard' },
+    ];
+    
+    document.getElementById('assetCount').textContent = `${this.assets.length} assets`;
+  },
+  
+  renderCategoryTabs: function() {
+    const container = document.getElementById('categoryTabs');
+    container.innerHTML = this.assetCategories.map(cat => `
+      <div class="category-tab ${cat === this.currentCategory ? 'active' : ''}" onclick="SceneBuilder.selectCategory('${cat}')">
+        ${cat.replace('_', ' ')}
+      </div>
+    `).join('');
+  },
+  
+  selectCategory: function(category) {
+    this.currentCategory = category;
+    this.renderCategoryTabs();
+    this.renderAssetList();
+  },
+  
+  filterAssets: function() {
+    const query = document.getElementById('assetSearch').value.toLowerCase();
+    this.renderAssetList(query);
+  },
+  
+  renderAssetList: function(searchQuery = '') {
+    const container = document.getElementById('assetList');
+    
+    let filtered = this.assets.filter(a => a.category === this.currentCategory);
+    
+    if (searchQuery) {
+      filtered = filtered.filter(a => 
+        a.name.toLowerCase().includes(searchQuery) || 
+        a.id.toLowerCase().includes(searchQuery)
+      );
+    }
+    
+    container.innerHTML = filtered.map(asset => `
+      <div class="asset-card ${this.selectedAsset === asset.id ? 'selected' : ''}" onclick="SceneBuilder.selectAsset('${asset.id}')">
+        <div class="asset-name">
+          ${asset.name}
+          <span class="asset-quality ${asset.quality}">${asset.quality}</span>
+        </div>
+        <div class="asset-meta">${asset.id}</div>
+      </div>
+    `).join('');
+  },
+
+  generatePromptSet: async function() {
+    const input = document.getElementById('voxelPrompt');
+    const status = document.getElementById('promptStatus');
+    const prompt = (input.value || '').trim();
+    if (!prompt) {
+      status.textContent = 'Type a set description first';
+      return;
+    }
+
+    status.textContent = 'Building voxel set...';
+    try {
+      const response = await fetch('/api/pubworld/props/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Client-Id': localStorage.getItem('pubcastHostId') || 'builder'},
+        body: JSON.stringify({
+          prompt,
+          scene_id: this.scene.scene_id,
+          provider: 'pubworld_rules'
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const payload = await response.json();
+      const prop = payload.prop;
+      const blocks = payload.blocks || [];
+      this.scene.voxel_sets = this.scene.voxel_sets || [];
+      this.scene.voxel_sets.push({
+        prop_id: prop.prop_id,
+        label: prop.label,
+        prompt,
+        provider: payload.provider,
+        blocks,
+        voxels: payload.voxels || []
+      });
+      this.addInstanceToScene({
+        id: `voxel_set_${prop.prop_id}`,
+        name: prop.label,
+        category: 'props',
+        quality: payload.provider || 'generated'
+      });
+      status.textContent = `Built ${blocks.length} blocks as ${prop.prop_id}`;
+      input.value = '';
+    } catch (error) {
+      console.error('Prompt voxel build failed', error);
+      status.textContent = 'Prompt build failed; backend not ready';
+    }
+  },
+  
+  selectAsset: function(assetId) {
+    this.selectedAsset = assetId;
+    this.renderAssetList();
+    
+    // Add to scene
+    const asset = this.assets.find(a => a.id === assetId);
+    if (asset) {
+      this.addInstanceToScene(asset);
+    }
+  },
+  
+  // ─────────────────────────────────────────────
+  // SCENE MANAGEMENT
+  // ─────────────────────────────────────────────
+  
+  addInstanceToScene: function(asset) {
+    const instance = {
+      instance_id: `${asset.id}_${Date.now()}`,
+      asset_id: asset.id,
+      name: asset.name,
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      visible: true
+    };
+    
+    this.scene.instances.push(instance);
+    this.scene.required_assets.add(asset.id);
+    
+    this.renderInstanceList();
+    this.updateStatus();
+    
+    console.log(`Added instance: ${instance.instance_id}`);
+  },
+  
+  removeInstance: function(instanceId) {
+    const index = this.scene.instances.findIndex(i => i.instance_id === instanceId);
+    if (index !== -1) {
+      const instance = this.scene.instances[index];
+      this.scene.instances.splice(index, 1);
+      
+      // Update required assets
+      if (!this.scene.instances.find(i => i.asset_id === instance.asset_id)) {
+        this.scene.required_assets.delete(instance.asset_id);
+      }
+      
+      this.renderInstanceList();
+      this.updateStatus();
+    }
+  },
+  
+  selectInstance: function(instanceId) {
+    this.selectedInstance = instanceId;
+    this.renderInstanceList();
+  },
+  
+  renderInstanceList: function() {
+    const container = document.getElementById('instanceList');
+    document.getElementById('instanceCount').textContent = `${this.scene.instances.length} instances`;
+    
+    if (this.scene.instances.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:11px;">No instances yet<br>Drag assets to add</div>';
+      return;
+    }
+    
+    container.innerHTML = this.scene.instances.map(inst => `
+      <div class="instance-item ${this.selectedInstance === inst.instance_id ? 'selected' : ''}" onclick="SceneBuilder.selectInstance('${inst.instance_id}')">
+        <div class="instance-info">
+          <div class="instance-name">${inst.name}</div>
+          <div class="instance-asset">${inst.asset_id}</div>
+        </div>
+        <div class="instance-actions">
+          <div class="icon-btn" onclick="event.stopPropagation(); SceneBuilder.removeInstance('${inst.instance_id}')">🗑️</div>
+        </div>
+      </div>
+    `).join('');
+  },
+  
+  // ─────────────────────────────────────────────
+  // PREFLIGHT VALIDATION
+  // ─────────────────────────────────────────────
+  
+  validateScene: async function() {
+    console.log("🔍 Validating scene for preflight...");
+    
+    // Calculate stats
+    const assetCount = this.scene.required_assets.size;
+    const instanceCount = this.scene.instances.length;
+    const estimatedMemoryMB = assetCount * 2.5; // Rough estimate
+    
+    let status = 'ok';
+    let message = 'Scene ready for preflight';
+    
+    if (instanceCount > 1000) {
+      status = 'error';
+      message = 'Too many instances (max 1000)';
+    } else if (instanceCount > 500) {
+      status = 'warning';
+      message = 'High instance count (may impact performance)';
+    }
+    
+    if (estimatedMemoryMB > 512) {
+      status = 'error';
+      message = 'Memory usage too high (max 512MB)';
+    } else if (estimatedMemoryMB > 256) {
+      status = 'warning';
+      message = 'High memory usage';
+    }
+    
+    // Update UI
+    document.getElementById('statusAssets').textContent = `${assetCount} loaded`;
+    document.getElementById('statusMemory').textContent = `${estimatedMemoryMB.toFixed(1)} MB`;
+    document.getElementById('statusPerf').textContent = status.toUpperCase();
+    
+    document.getElementById('statusPerf').className = `status-value ${status}`;
+    
+    alert(`Scene Validation\n\nStatus: ${status.toUpperCase()}\nMessage: ${message}\n\nAssets: ${assetCount}\nInstances: ${instanceCount}\nMemory: ${estimatedMemoryMB.toFixed(1)} MB`);
+  },
+  
+  updateStatus: function() {
+    const assetCount = this.scene.required_assets.size;
+    const instanceCount = this.scene.instances.length;
+    const estimatedMemoryMB = assetCount * 2.5;
+    
+    document.getElementById('statusAssets').textContent = `${assetCount} / ${this.assets.length}`;
+    document.getElementById('statusMemory').textContent = `${estimatedMemoryMB.toFixed(1)} MB`;
+    
+    let perfStatus = 'OK';
+    let perfClass = 'ok';
+    
+    if (instanceCount > 1000 || estimatedMemoryMB > 512) {
+      perfStatus = 'ERROR';
+      perfClass = 'error';
+    } else if (instanceCount > 500 || estimatedMemoryMB > 256) {
+      perfStatus = 'WARNING';
+      perfClass = 'warning';
+    }
+    
+    document.getElementById('statusPerf').textContent = perfStatus;
+    document.getElementById('statusPerf').className = `status-value ${perfClass}`;
+  },
+  
+  // ─────────────────────────────────────────────
+  // ENVIRONMENT CONTROLS
+  // ─────────────────────────────────────────────
+  
+  updateAmbientLight: function(value) {
+    this.scene.ambient_light = parseFloat(value);
+    console.log(`Ambient light: ${value}`);
+  },
+  
+  updateFog: function() {
+    this.scene.fog_enabled = document.getElementById('fogEnabled').checked;
+    console.log(`Fog: ${this.scene.fog_enabled}`);
+  },
+  
+  // ─────────────────────────────────────────────
+  // FILE OPERATIONS
+  // ─────────────────────────────────────────────
+  
+  newScene: function() {
+    if (confirm('Create new scene? Current scene will be lost.')) {
+      this.scene = {
+        scene_id: 'untitled_' + Date.now(),
+        name: 'Untitled Scene',
+        instances: [],
+        required_assets: new Set(),
+        voxel_sets: [],
+        ambient_light: 0.3,
+        fog_enabled: false,
+        camera_position: [0.0, 1.6, 5.0]
+      };
+      
+      document.getElementById('sceneName').textContent = 'Untitled Scene';
+      this.renderInstanceList();
+      this.updateStatus();
+    }
+  },
+  
+  saveScene: function() {
+    const now = new Date().toISOString();
+    const hostName = localStorage.getItem('pubcastHostName') || 'Unknown Host';
+    const hostId = localStorage.getItem('pubcastHostId') || hostName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'unknown_host';
+    const title = this.scene.name || 'Untitled Scene';
+    const scenePayload = {
+      ...this.scene,
+      required_assets: Array.from(this.scene.required_assets)
+    };
+    const saveData = {
+      save_manifest: {
+        schema: 'pubcast.savefile.v1',
+        save_version: 1,
+        save_kind: 'builder_scene_manual_save',
+        saved_at: now,
+        title,
+        session_id: `builder_${Date.now()}`,
+        participant_count: 1
+      },
+      project_identity: {
+        project_id: this.scene.scene_id,
+        slug: this.scene.scene_id,
+        canonical_title: title,
+        original_title: title,
+        original_synopsis: localStorage.getItem(`pubcastSynopsis:${this.scene.scene_id}`) || '',
+        current_synopsis: localStorage.getItem(`pubcastSynopsis:${this.scene.scene_id}`) || '',
+        created_at: now,
+        last_modified_at: now,
+        created_by: hostId,
+        original_host_id: hostId
+      },
+      project_credits: {
+        creator: [hostName],
+        writer_of_record: [hostName],
+        director: [hostName],
+        producer: [hostName],
+        original_host: [hostName]
+      },
+      session_credits: {
+        session_id: `builder_${Date.now()}`,
+        session_started_at: now,
+        session_ended_at: now,
+        host_user_id: hostId,
+        host_display_name: hostName,
+        participants: [{
+          user_id: hostId,
+          display_name: hostName,
+          session_role: ['host', 'builder'],
+          project_role: ['creator', 'writer_of_record', 'director', 'producer'],
+          license_role: 'master',
+          joined_at: now,
+          left_at: now,
+          permissions_granted_in_session: ['save', 'export', 'edit'],
+          contributed_changes: true,
+          contribution_summary: 'Manual scene save from builder',
+          creditable: true
+        }]
+      },
+      authority: {
+        current_host_id: hostId,
+        save_authority: [hostId],
+        broadcast_authority: [hostId],
+        export_authority: [hostId]
+      },
+      contribution_history: [{
+        timestamp: now,
+        user_id: hostId,
+        role: 'builder',
+        action: 'manual_scene_save',
+        target: this.scene.scene_id
+      }],
+      content: scenePayload
+    };
+    
+    const json = JSON.stringify(saveData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.scene.scene_id}.json`;
+    a.click();
+    
+    console.log("💾 Scene saved with session credits");
+  },
+  
+  loadScene: function() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          const loaded = data.content || data;
+          this.scene = {
+            ...loaded,
+            voxel_sets: loaded.voxel_sets || [],
+            required_assets: new Set(loaded.required_assets || [])
+          };
+          
+          document.getElementById('sceneName').textContent = this.scene.name;
+          this.renderInstanceList();
+          this.updateStatus();
+          
+          console.log("📂 Scene loaded");
+        } catch (error) {
+          alert('Failed to load scene: ' + error.message);
+        }
+      };
+      
+      reader.readAsText(file);
+    };
+    
+    input.click();
+  },
+  
+  // ─────────────────────────────────────────────
+  // VIEWPORT CONTROLS
+  // ─────────────────────────────────────────────
+  
+  resetCamera: function() {
+    document.getElementById('camPosX').value = 0.0;
+    document.getElementById('camPosY').value = 1.6;
+    document.getElementById('camPosZ').value = 5.0;
+    this.scene.camera_position = [0.0, 1.6, 5.0];
+    console.log("📷 Camera reset");
+  },
+  
+  toggleGrid: function() {
+    console.log("⊞ Grid toggled");
+  },
+  
+  // ─────────────────────────────────────────────
+  // UI UTILITIES
+  // ─────────────────────────────────────────────
+  
+  toggleSection: function(header) {
+    const content = header.nextElementSibling;
+    if (content) {
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? '' : 'none';
+      header.querySelector('span:last-child').textContent = isHidden ? '▼' : '▶';
+    }
+  }
+};
+
+// ─────────────────────────────────────────────
+// INITIALIZE ON LOAD
+// ─────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  SceneBuilder.init();
+});
+
+console.log(`
+🎨 SCENE BUILDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Visual scene composition tool for
+PubCast AI voxel environments.
+
+Build your virtual production space!
+`);
+</script>
+
+</body>
+</html>

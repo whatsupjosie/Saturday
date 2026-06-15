@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PubWorld — Stage Builder</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080e;--panel:rgba(8,10,16,0.94);--border:rgba(255,255,255,0.07);
+  --accent:#00e5cc;--gold:#c9a84c;--ok:#00cc88;--warn:#f0a500;--danger:#e03e3e;
+  --text:#b8bdd0;--bright:#dde0ec;--muted:#4a5068;
+  --font:Inter,Segoe UI,Arial,sans-serif;--mono:Consolas,'Courier New',monospace;
+  --panel-w:260px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);cursor:none;
+  font-family:var(--font);-webkit-font-smoothing:antialiased}
+
+#cur{position:fixed;width:16px;height:16px;border:2px solid var(--accent);
+  border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);
+  box-shadow:0 0 8px var(--accent);transition:width .1s,height .1s,border-color .1s}
+#cur.hover{width:24px;height:24px;background:rgba(0,229,204,.1)}
+
+canvas#c{position:fixed;inset:0;display:block}
+
+/* ── TOP BAR ── */
+#top-bar{
+  position:fixed;top:0;left:0;right:0;height:46px;
+  background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:12px;z-index:200;
+  backdrop-filter:blur(10px);
+}
+.tb-logo{font-size:.85rem;font-weight:800;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
+.tb-logo em{color:var(--accent);font-style:normal}
+.tb-sep{width:1px;height:20px;background:var(--border)}
+.tb-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;
+  color:var(--muted);font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;
+  padding:4px 10px;cursor:pointer;text-transform:uppercase;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{background:rgba(0,229,204,.08);border-color:rgba(0,229,204,.25);color:var(--accent)}
+.tb-btn.active{background:rgba(0,229,204,.12);border-color:var(--accent);color:var(--accent)}
+.tb-spacer{flex:1}
+#ws-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s}
+#ws-dot.ok{background:var(--ok);box-shadow:0 0 5px var(--ok)}
+
+/* ── PANELS ── */
+.panel{
+  position:fixed;top:46px;bottom:46px;width:var(--panel-w);
+  background:var(--panel);border:1px solid var(--border);
+  overflow-y:auto;z-index:150;transition:transform .28s cubic-bezier(.4,0,.2,1);
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+  backdrop-filter:blur(10px);
+}
+.panel::-webkit-scrollbar{width:3px}
+.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#panel-left{left:0;transform:translateX(0);border-right-color:var(--border);border-left:none}
+#panel-left.hidden{transform:translateX(-100%)}
+#panel-right{right:0;transform:translateX(0);border-left-color:var(--border);border-right:none}
+#panel-right.hidden{transform:translateX(100%)}
+
+.panel-section{border-bottom:1px solid var(--border);padding:12px 14px}
+.ps-title{font-size:.65rem;font-weight:700;letter-spacing:.14em;color:var(--muted);
+  text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.ps-title::before{content:'';width:3px;height:3px;border-radius:50%;background:var(--accent)}
+
+/* ── CONTROLS ── */
+label.ctrl{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;
+  font-size:.68rem;color:var(--text);font-weight:600;letter-spacing:.04em}
+input[type=range]{width:100%;accent-color:var(--accent);height:3px;cursor:pointer}
+input[type=color]{width:100%;height:28px;border:1px solid var(--border);border-radius:4px;
+  cursor:pointer;background:transparent}
+select{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:4px;color:var(--bright);font-family:var(--mono);font-size:.7rem;
+  padding:5px 7px;cursor:pointer}
+select:focus{outline:none;border-color:var(--accent)}
+.prompt-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:4px;color:var(--bright);font-family:var(--mono);font-size:.7rem;
+  padding:6px 7px}
+.prompt-input:focus{outline:none;border-color:var(--accent)}
+.prompt-status{min-height:16px;color:var(--muted);font-family:var(--mono);font-size:.62rem}
+
+.btn-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.mini-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;
+  color:var(--muted);font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;
+  padding:4px 8px;cursor:pointer;text-transform:uppercase;transition:all .15s;flex:1;
+  text-align:center}
+.mini-btn:hover{background:rgba(0,229,204,.08);color:var(--accent);border-color:rgba(0,229,204,.2)}
+.mini-btn.on{background:rgba(0,229,204,.12);color:var(--accent);border-color:var(--accent)}
+
+/* ── BOTTOM BAR ── */
+#bottom-bar{
+  position:fixed;bottom:0;left:0;right:0;height:46px;
+  background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:10px;z-index:200;
+}
+.bb-info{font-family:var(--mono);font-size:.62rem;color:var(--muted);white-space:nowrap}
+#vox-status{color:var(--accent);font-family:var(--mono);font-size:.65rem;letter-spacing:.08em;min-width:160px}
+
+/* ── COLOR WHEEL ── */
+#cw-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;
+  display:none;align-items:center;justify-content:center}
+#cw-modal.show{display:flex}
+#cw-box{background:#0e101a;border:1px solid var(--border);border-radius:12px;
+  padding:20px;display:flex;flex-direction:column;gap:12px;min-width:260px}
+#cw-canvas{border-radius:50%;cursor:crosshair;display:block;margin:0 auto}
+#cw-preview{height:36px;border-radius:6px;border:1px solid var(--border);transition:background .1s}
+.cw-btns{display:flex;gap:8px}
+.cw-ok{flex:1;background:rgba(0,229,204,.12);border:1px solid var(--accent);color:var(--accent);
+  border-radius:6px;padding:7px;cursor:pointer;font-family:var(--mono);font-size:.7rem;
+  letter-spacing:.1em;text-transform:uppercase}
+.cw-cancel{background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:6px;padding:7px 14px;cursor:pointer;font-family:var(--mono);font-size:.7rem}
+
+/* ── UPLOAD MODAL ── */
+#upload-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;
+  display:none;align-items:center;justify-content:center}
+#upload-modal.show{display:flex}
+#upload-box{background:#0e101a;border:1px solid var(--border);border-radius:12px;
+  padding:24px;min-width:320px;display:flex;flex-direction:column;gap:12px}
+.upload-drop{border:2px dashed var(--border);border-radius:8px;padding:24px;
+  text-align:center;color:var(--muted);font-size:.78rem;cursor:pointer;transition:all .2s}
+.upload-drop:hover{border-color:var(--accent);color:var(--accent)}
+.upload-drop input{display:none}
+</style>
+</head>
+<body>
+<div id="cur"></div>
+<canvas id="c"></canvas>
+
+<!-- TOP BAR -->
+<div id="top-bar">
+  <div class="tb-logo">Pub<em>World</em> Stage</div>
+  <div class="tb-sep"></div>
+  <button class="tb-btn active" id="btn-panel-left"  onclick="togglePanel('left')">⟨ Floor</button>
+  <button class="tb-btn active" id="btn-panel-right" onclick="togglePanel('right')">Light ⟩</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-grid"   onclick="toggleGrid()">Grid</button>
+  <button class="tb-btn" id="btn-vgrid"  onclick="toggleVGrid()">V-Grid</button>
+  <button class="tb-btn" id="btn-audio"  onclick="toggleAudio()">🔊 Heel</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-summon" onclick="summonSet()">✦ Summon Set</button>
+  <button class="tb-btn" onclick="saveStage()">↓ Save</button>
+  <button class="tb-btn" onclick="document.getElementById('load-file').click()">↑ Load</button>
+  <input type="file" id="load-file" style="display:none" accept=".json" onchange="loadStage(event)"/>
+  <div class="tb-spacer"></div>
+  <span class="tb-btn" style="cursor:default" id="stage-size-label">16×16</span>
+  <span id="ws-dot"></span>
+  <a href="/stage"  class="tb-btn">← Stage</a>
+  <a href="/launch" class="tb-btn">Launch</a>
+</div>
+
+<!-- LEFT PANEL: Floor + Stage -->
+<div class="panel" id="panel-left">
+
+  <div class="panel-section">
+    <div class="ps-title">Stage Size</div>
+    <div class="btn-row">
+      <button class="mini-btn" onclick="setStageSize(8)"  >8×8</button>
+      <button class="mini-btn on" onclick="setStageSize(16)" >16×16</button>
+      <button class="mini-btn" onclick="setStageSize(24)" >24×24</button>
+      <button class="mini-btn" onclick="setStageSize(40)" >40×40</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="ps-title">Floor Type</div>
+    <select id="floor-type" onchange="setFloorType(this.value)">
+      <option value="grid">Grid (default)</option>
+      <option value="tile">Patterned Tile</option>
+      <option value="marble">Marble</option>
+      <option value="sidewalk">City Sidewalk</option>
+      <option value="street">Street / Asphalt</option>
+      <option value="grass">Grass</option>
+      <option value="carpet">Carpet</option>
+      <option value="water">Water</option>
+      <option value="mirror">Mirrored</option>
+      <option value="custom">Custom Color</option>
+      <option value="image">Uploaded Image</option>
+    </select>
+    <div style="height:8px"></div>
+    <div class="btn-row">
+      <button class="mini-btn on" id="fx-none"   onclick="setFloorFX('none')">Flat</button>
+      <button class="mini-btn"    id="fx-glossy" onclick="setFloorFX('glossy')">Glossy</button>
+      <button class="mini-btn"    id="fx-matt"   onclick="setFloorFX('matt')">Matt</button>
+      <button class="mini-btn"    id="fx-fog"    onclick="setFloorFX('fog')">Fogged</button>
+      <button class="mini-btn"    id="fx-gritty" onclick="setFloorFX('gritty')">Gritty</button>
+    </div>
+    <div style="height:6px"></div>
+    <button class="mini-btn" style="width:100%" onclick="openColorWheel('floor')">🎨 Floor Color</button>
+    <div style="height:6px"></div>
+    <div class="upload-drop" onclick="document.getElementById('floor-img').click()">
+      Drop floor image or click<br/><small style="opacity:.5">JPG / PNG / WebP</small>
+      <input type="file" id="floor-img" accept="image/*" onchange="loadFloorImage(event)"/>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="ps-title">Floor Sound</div>
+    <select id="floor-sound" onchange="setFloorSound(this.value)">
+      <option value="heel">Heel Click (default)</option>
+      <option value="soft">Soft Step</option>
+      <option value="grass">Grass / Crunch</option>
+      <option value="carpet">Carpet (muffled)</option>
+      <option value="water">Water Splash</option>
+      <option value="metal">Metal Clang</option>
+    </select>
+  </div>
+
+  <div class="panel-section">
+    <div class="ps-title">Sky Mode</div>
+    <div class="btn-row">
+      <button class="mini-btn"    id="sky-starry" onclick="setSkyMode('starry')">Starry</button>
+      <button class="mini-btn on" id="sky-studio" onclick="setSkyMode('studio')">Studio</button>
+      <button class="mini-btn"    id="sky-dawn"   onclick="setSkyMode('dawn')">Dawn</button>
+      <button class="mini-btn"    id="sky-void"   onclick="setSkyMode('void')">Void</button>
+    </div>
+    <label class="ctrl">Sky Intensity
+      <input type="range" min="0" max="100" value="60" oninput="setSkyIntensity(this.value/100)"/>
+    </label>
+    <label class="ctrl">Swirl Speed
+      <input type="range" min="0" max="100" value="30" id="swirl-speed" oninput="setSwirlSpeed(this.value/100)"/>
+    </label>
+  </div>
+
+  <div class="panel-section">
+    <div class="ps-title">Voxel Library</div>
+    <div id="vox-library" style="display:flex;flex-direction:column;gap:5px"></div>
+    <div style="height:8px"></div>
+    <input class="prompt-input" id="vox-prompt" placeholder="Describe a voxel set..." onkeydown="if(event.key==='Enter') generateVoxelPrompt()"/>
+    <div class="btn-row" style="margin-top:6px">
+      <button class="mini-btn on" onclick="generateVoxelPrompt()">Build Prompt Set</button>
+    </div>
+    <div class="prompt-status" id="vox-prompt-status">Prompt builder ready</div>
+    <div style="height:8px"></div>
+    <button class="mini-btn" style="width:100%" onclick="document.getElementById('vox-file').click()">↑ Import Voxel JSON</button>
+    <input type="file" id="vox-file" accept=".json" style="display:none" onchange="importVoxelSet(event)"/>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL: Lighting -->
+<div class="panel" id="panel-right">
+
+  <div class="panel-section">
+    <div class="ps-title">Lighting Presets</div>
+    <div class="btn-row">
+      <button class="mini-btn" onclick="applyLightPreset('three-point')">3-Point</button>
+      <button class="mini-btn" onclick="applyLightPreset('broadcast')">Broadcast</button>
+      <button class="mini-btn" onclick="applyLightPreset('dramatic')">Dramatic</button>
+      <button class="mini-btn" onclick="applyLightPreset('night')">Night</button>
+    </div>
+    <div class="btn-row">
+      <button class="mini-btn" onclick="applyLightPreset('interview')">Interview</button>
+      <button class="mini-btn" onclick="applyLightPreset('club')">Club</button>
+    </div>
+  </div>
+
+  <!-- Four directional lights -->
+  <div id="light-panels"></div>
+
+  <div class="panel-section">
+    <div class="ps-title">Ambient</div>
+    <label class="ctrl">Intensity
+      <input type="range" min="0" max="100" value="25" oninput="setAmbient(this.value/100)"/>
+    </label>
+    <label class="ctrl">Color
+      <input type="color" value="#ffffff" id="amb-color" oninput="setAmbientColor(this.value)"/>
+    </label>
+  </div>
+
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottom-bar">
+  <div class="bb-info" id="coord-display">X: 0  Z: 0</div>
+  <div class="tb-sep"></div>
+  <div id="vox-status">Ready</div>
+  <div class="tb-spacer"></div>
+  <button class="tb-btn" onclick="clearVoxels()">Clear Stage</button>
+  <button class="tb-btn" onclick="exportStageJSON()">Export JSON</button>
+</div>
+
+<!-- COLOR WHEEL MODAL -->
+<div id="cw-modal">
+  <div id="cw-box">
+    <div class="ps-title" style="margin:0">Color Picker</div>
+    <canvas id="cw-canvas" width="200" height="200"></canvas>
+    <label class="ctrl" style="margin:0">Lightness
+      <input type="range" id="cw-light" min="0" max="100" value="50" oninput="cwUpdateLight()"/>
+    </label>
+    <div id="cw-preview"></div>
+    <div class="cw-btns">
+      <button class="cw-ok" onclick="cwApply()">Apply</button>
+      <button class="cw-cancel" onclick="cwClose()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div id="upload-modal">
+  <div id="upload-box">
+    <div class="ps-title" style="margin:0">Import to Stage</div>
+    <p style="font-size:.75rem;color:var(--muted)">Upload a JSON voxel set — voxels will fly in from the horizon and assemble on stage.</p>
+    <button class="cw-ok" onclick="document.getElementById('upload-modal').classList.remove('show')">Close</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDERER + SCENE
+// ═══════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 400);
+camera.position.set(0, 14, 22);
+camera.lookAt(0, 0, 0);
+
+function onResize() {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let _stageSize   = 16;
+let _floorType   = 'grid';
+let _floorFX     = 'none';
+let _floorColor  = '#1a2030';
+let _skyMode     = 'studio';
+let _skyIntensity = 0.6;
+let _swirlSpeed  = 0.3;
+let _gridVisible  = true;
+let _vgridVisible = false;
+let _audioEnabled = true;
+let _floorSound   = 'heel';
+let _cwTarget     = null;
+let _cwColor      = '#00e5cc';
+let _cwLightness  = 50;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STAGE FLOOR
+// ═══════════════════════════════════════════════════════════════════════════
+let _floorMesh = null;
+let _floorTex  = null;
+
+function buildFloor() {
+  if (_floorMesh) { scene.remove(_floorMesh); _floorMesh.geometry.dispose(); }
+  const geo = new THREE.PlaneGeometry(_stageSize, _stageSize, _stageSize, _stageSize);
+
+  let mat;
+  switch (_floorType) {
+    case 'mirror':
+      mat = new THREE.MeshStandardMaterial({
+        color: 0x8899bb, metalness: 1.0, roughness: 0.0,
+        envMapIntensity: 1.2
+      });
+      break;
+    case 'marble':
+      mat = new THREE.MeshStandardMaterial({
+        color: 0xd4c8b8, roughness: 0.1, metalness: 0.05,
+      });
+      break;
+    case 'water':
+      mat = new THREE.MeshStandardMaterial({
+        color: 0x0044aa, roughness: 0.05, metalness: 0.1,
+        transparent: true, opacity: 0.82,
+      });
+      break;
+    case 'grass':
+      mat = new THREE.MeshStandardMaterial({ color: 0x2d5a1b, roughness: 0.95 });
+      break;
+    case 'carpet':
+      mat = new THREE.MeshStandardMaterial({ color: 0x6e2222, roughness: 0.98, metalness: 0 });
+      break;
+    case 'street':
+      mat = new THREE.MeshStandardMaterial({ color: 0x222226, roughness: 0.92 });
+      break;
+    case 'sidewalk':
+      mat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.88 });
+      break;
+    case 'tile':
+      mat = _makeTileMaterial();
+      break;
+    case 'image':
+      if (_floorTex) {
+        mat = new THREE.MeshStandardMaterial({ map: _floorTex, roughness: 0.5 });
+      } else {
+        mat = new THREE.MeshStandardMaterial({ color: 0x222233 });
+      }
+      break;
+    case 'custom':
+      mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(_floorColor) });
+      break;
+    default: // grid
+      mat = new THREE.MeshStandardMaterial({ color: 0x0d1018, roughness: 0.9 });
+  }
+
+  // Apply FX modifiers
+  switch (_floorFX) {
+    case 'glossy':  mat.roughness = Math.min(mat.roughness || 0.5, 0.08); mat.metalness = 0.6; break;
+    case 'matt':    mat.roughness = 0.98; mat.metalness = 0; break;
+    case 'fog':     mat.transparent = true; mat.opacity = 0.7; break;
+    case 'gritty':  mat.roughness = 1.0; break;
+  }
+
+  _floorMesh = new THREE.Mesh(geo, mat);
+  _floorMesh.rotation.x = -Math.PI / 2;
+  _floorMesh.receiveShadow = true;
+  scene.add(_floorMesh);
+}
+
+function _makeTileMaterial() {
+  // Checkerboard via vertex colors
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.1 });
+  return mat;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLOOR GRID
+// ═══════════════════════════════════════════════════════════════════════════
+let _gridMesh   = null;
+let _vgridGroup = null;
+
+function buildGrid() {
+  if (_gridMesh) scene.remove(_gridMesh);
+  _gridMesh = new THREE.GridHelper(_stageSize, _stageSize, 0x00e5cc, 0x1a2535);
+  _gridMesh.position.y = 0.005;
+  _gridMesh.material.opacity = 0.5;
+  _gridMesh.material.transparent = true;
+  _gridMesh.visible = _gridVisible;
+  scene.add(_gridMesh);
+}
+
+function buildVGrid() {
+  if (_vgridGroup) scene.remove(_vgridGroup);
+  _vgridGroup = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color: 0x00e5cc, transparent: true, opacity: 0.18 });
+
+  // Vertical planes on each side
+  [-1, 1].forEach(side => {
+    const edge = (_stageSize / 2) * side;
+    const vGrid = new THREE.GridHelper(_stageSize, _stageSize, 0x00e5cc, 0x112233);
+    vGrid.material.transparent = true;
+    vGrid.material.opacity = 0.15;
+    vGrid.rotation.z = Math.PI / 2;
+    vGrid.position.x = edge;
+    vGrid.position.y = _stageSize / 2;
+    _vgridGroup.add(vGrid);
+  });
+  // Height markers every 1 unit
+  for (let h = 1; h <= _stageSize; h += 1) {
+    const pts = [
+      new THREE.Vector3(-_stageSize/2, h, 0),
+      new THREE.Vector3(_stageSize/2,  h, 0),
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x00e5cc, transparent: true, opacity: h % 5 === 0 ? 0.35 : 0.08 }));
+    _vgridGroup.add(line);
+  }
+
+  _vgridGroup.visible = _vgridVisible;
+  scene.add(_vgridGroup);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STAGE EDGE / APRON
+// ═══════════════════════════════════════════════════════════════════════════
+let _edgeMesh = null;
+function buildEdge() {
+  if (_edgeMesh) scene.remove(_edgeMesh);
+  const half = _stageSize / 2;
+  const points = [
+    new THREE.Vector3(-half, 0, -half),
+    new THREE.Vector3( half, 0, -half),
+    new THREE.Vector3( half, 0,  half),
+    new THREE.Vector3(-half, 0,  half),
+    new THREE.Vector3(-half, 0, -half),
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(points);
+  _edgeMesh = new THREE.Line(geo, new THREE.LineBasicMaterial({
+    color: 0x00e5cc, transparent: true, opacity: 0.6
+  }));
+  _edgeMesh.position.y = 0.01;
+  scene.add(_edgeMesh);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SKY SYSTEM  (custom background shader)
+// ═══════════════════════════════════════════════════════════════════════════
+const SKY_UNIFORMS = {
+  uTime:       { value: 0 },
+  uMode:       { value: 1 },  // 0=starry, 1=studio, 2=dawn, 3=void
+  uIntensity:  { value: 0.6 },
+  uSwirl:      { value: 0.3 },
+};
+
+const skyMaterial = new THREE.ShaderMaterial({
+  uniforms: SKY_UNIFORMS,
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vPos;
+    void main() {
+      vUv = uv;
+      vPos = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float uTime;
+    uniform float uMode;
+    uniform float uIntensity;
+    uniform float uSwirl;
+    varying vec2 vUv;
+    varying vec3 vPos;
+
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+
+    float noise(vec2 p){
+      vec2 i=floor(p), f=fract(p);
+      vec2 u=f*f*(3.-2.*f);
+      return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),
+                 mix(hash(i+vec2(0,1)),hash(i+vec2(1)),u.x),u.y);
+    }
+
+    float fbm(vec2 p){
+      float v=0.; float a=.5;
+      for(int i=0;i<6;i++){ v+=a*noise(p); p=p*2.1+vec2(1.7,9.2); a*=.5; }
+      return v;
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      float t = uTime * uSwirl;
+
+      // STARRY NIGHT (mode 0)
+      if(uMode < 0.5) {
+        vec2 swirl = uv + vec2(sin(uv.y*3.+t)*0.08, cos(uv.x*2.+t*0.7)*0.06);
+        float cloud = fbm(swirl * 3. + t * 0.1);
+        float cloud2= fbm(swirl * 5. - t * 0.07 + 1.3);
+        // Deep blue-black base
+        vec3 baseA = vec3(0.02, 0.04, 0.12);
+        vec3 baseB = vec3(0.05, 0.08, 0.22);
+        vec3 baseC = vec3(0.12, 0.05, 0.18);
+        vec3 sky = mix(baseA, mix(baseB, baseC, cloud2), cloud);
+        sky += vec3(0.0, 0.02, 0.08) * cloud * 1.5;
+        // Stars
+        vec2 starUv = uv * vec2(60., 40.);
+        vec2 si = floor(starUv); vec2 sf = fract(starUv);
+        float star = hash(si);
+        float starBrightness = step(0.93, star) * (1.-length(sf-.5)*2.8);
+        starBrightness *= 0.6 + 0.4*sin(uTime*2.+star*20.);
+        sky += vec3(starBrightness) * vec3(0.9+star*.1, 0.9, 1.);
+        // Moon glow
+        float moonGlow = max(0., 1.-length(uv-vec2(0.8,0.8))*8.);
+        sky += vec3(0.6,0.6,0.8)*moonGlow*moonGlow;
+        gl_FragColor = vec4(sky * uIntensity, 1.);
+      }
+      // STUDIO (mode 1)
+      else if(uMode < 1.5) {
+        float grad = 1. - uv.y * 0.5;
+        vec3 c = mix(vec3(0.06,0.08,0.12), vec3(0.18,0.20,0.26), grad);
+        gl_FragColor = vec4(c * uIntensity, 1.);
+      }
+      // DAWN (mode 2)
+      else if(uMode < 2.5) {
+        vec3 horizon = vec3(1.0, 0.55, 0.2);
+        vec3 zenith  = vec3(0.1, 0.18, 0.55);
+        vec3 c = mix(horizon, zenith, pow(uv.y, 0.5));
+        float glow = max(0., 1.-abs(uv.x-.5)*4.) * (1.-uv.y);
+        c += vec3(1.,0.7,0.3)*glow*0.6;
+        gl_FragColor = vec4(c * uIntensity, 1.);
+      }
+      // VOID (mode 3)
+      else {
+        float vignette = length(uv - vec2(.5));
+        float glow = fbm(uv*4.+t*0.05)*0.08;
+        vec3 c = vec3(0.004, 0.006, 0.014) + vec3(0.,0.04,0.06)*glow;
+        c *= (1.-vignette*0.8);
+        gl_FragColor = vec4(c, 1.);
+      }
+    }
+  `,
+  side: THREE.BackSide,
+  depthWrite: false,
+});
+
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(160, 32, 16), skyMaterial);
+scene.add(skyDome);
+
+function setSkyMode(mode) {
+  const map = { starry: 0, studio: 1, dawn: 2, void: 3 };
+  SKY_UNIFORMS.uMode.value = map[mode] ?? 1;
+  _skyMode = mode;
+  document.querySelectorAll('[id^="sky-"]').forEach(b => b.classList.remove('on'));
+  const btn = document.getElementById('sky-' + mode);
+  if (btn) btn.classList.add('on');
+  // Adjust ambient for mode
+  if (mode === 'void') setAmbient(0.08);
+  if (mode === 'studio') setAmbient(0.3);
+  if (mode === 'dawn') setAmbient(0.45);
+}
+
+function setSkyIntensity(v) { SKY_UNIFORMS.uIntensity.value = v; _skyIntensity = v; }
+function setSwirlSpeed(v)   { SKY_UNIFORMS.uSwirl.value = v; _swirlSpeed = v; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIGHTING RIG  (4 directional lights + ambient)
+// ═══════════════════════════════════════════════════════════════════════════
+const LIGHT_DEFS = [
+  { id: 'front',  label: 'Front',  pos: [0,  10, 12], color: '#ffffff', intensity: 1.0, role: 'key'  },
+  { id: 'back',   label: 'Back',   pos: [0,  10,-12], color: '#334466', intensity: 0.4, role: 'back' },
+  { id: 'left',   label: 'Left',   pos: [-12,10,  0], color: '#ffeecc', intensity: 0.5, role: 'fill' },
+  { id: 'right',  label: 'Right',  pos: [ 12,10,  0], color: '#ccddff', intensity: 0.4, role: 'fill' },
+];
+
+const _lights = {};
+const _ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+scene.add(_ambientLight);
+
+LIGHT_DEFS.forEach(def => {
+  const light = new THREE.DirectionalLight(def.color, def.intensity);
+  light.position.set(...def.pos);
+  light.castShadow = true;
+  light.shadow.mapSize.set(1024, 1024);
+  const sz = 16;
+  light.shadow.camera.left = light.shadow.camera.bottom = -sz;
+  light.shadow.camera.right = light.shadow.camera.top = sz;
+  light.shadow.camera.near = 0.1;
+  light.shadow.camera.far = 60;
+  scene.add(light);
+  _lights[def.id] = light;
+});
+
+// Build lighting UI
+const lp = document.getElementById('light-panels');
+LIGHT_DEFS.forEach(def => {
+  lp.innerHTML += `
+  <div class="panel-section">
+    <div class="ps-title">${def.label} <span style="color:var(--muted);font-size:.58rem">(${def.role.toUpperCase()})</span></div>
+    <label class="ctrl">Intensity
+      <input type="range" min="0" max="200" value="${def.intensity*100}"
+        oninput="_lights['${def.id}'].intensity=this.value/100"/>
+    </label>
+    <label class="ctrl">Color
+      <input type="color" value="${def.color}"
+        oninput="_lights['${def.id}'].color.set(this.value)"/>
+    </label>
+    <div class="btn-row">
+      <button class="mini-btn" onclick="openColorWheel('light_${def.id}')">🎨</button>
+      <button class="mini-btn" onclick="_lights['${def.id}'].intensity=0">Off</button>
+      <button class="mini-btn" onclick="_lights['${def.id}'].intensity=${def.intensity}">Reset</button>
+    </div>
+  </div>`;
+});
+
+function setAmbient(v) { _ambientLight.intensity = v; }
+function setAmbientColor(hex) { _ambientLight.color.set(hex); }
+
+const LIGHT_PRESETS = {
+  'three-point': {
+    front:  { intensity: 1.2, color: '#fff8f0' },
+    left:   { intensity: 0.6, color: '#cce4ff' },
+    right:  { intensity: 0.0, color: '#ffffff' },
+    back:   { intensity: 0.3, color: '#223344' },
+    ambient: 0.2,
+  },
+  'broadcast': {
+    front:  { intensity: 1.4, color: '#ffffff' },
+    left:   { intensity: 0.8, color: '#ffffff' },
+    right:  { intensity: 0.8, color: '#ffffff' },
+    back:   { intensity: 0.2, color: '#334455' },
+    ambient: 0.35,
+  },
+  'dramatic': {
+    front:  { intensity: 1.8, color: '#fff0dd' },
+    left:   { intensity: 0.1, color: '#112244' },
+    right:  { intensity: 0.0, color: '#ffffff' },
+    back:   { intensity: 0.8, color: '#220011' },
+    ambient: 0.05,
+  },
+  'night': {
+    front:  { intensity: 0.3, color: '#334488' },
+    left:   { intensity: 0.15, color: '#221133' },
+    right:  { intensity: 0.15, color: '#112233' },
+    back:   { intensity: 0.0, color: '#000000' },
+    ambient: 0.04,
+  },
+  'interview': {
+    front:  { intensity: 1.0, color: '#fff8e8' },
+    left:   { intensity: 0.5, color: '#ffeedd' },
+    right:  { intensity: 0.4, color: '#ddeeff' },
+    back:   { intensity: 0.2, color: '#223344' },
+    ambient: 0.3,
+  },
+  'club': {
+    front:  { intensity: 0.6, color: '#ff2288' },
+    left:   { intensity: 0.8, color: '#22ffaa' },
+    right:  { intensity: 0.8, color: '#4422ff' },
+    back:   { intensity: 0.4, color: '#ffaa00' },
+    ambient: 0.08,
+  },
+};
+
+function applyLightPreset(name) {
+  const p = LIGHT_PRESETS[name];
+  if (!p) return;
+  LIGHT_DEFS.forEach(def => {
+    const cfg = p[def.id];
+    if (cfg) {
+      _lights[def.id].intensity = cfg.intensity;
+      _lights[def.id].color.set(cfg.color);
+    }
+  });
+  if (p.ambient !== undefined) setAmbient(p.ambient);
+  // Refresh sliders
+  document.querySelectorAll('input[type=range]').forEach(inp => {
+    // trigger no-op — value is live via direct object mutation
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VOXEL SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+const VOX_SIZE  = 0.5;
+const VOX_GAP   = 0.52;
+let _voxGroups  = [];
+let _assembling = false;
+
+// Default voxel library
+const VOX_LIBRARY = [
+  {
+    name: 'Broadcast Desk',
+    color: '#1a2840',
+    voxels: (() => {
+      const v = [];
+      for (let x = -3; x <= 3; x++)
+        for (let z = -1; z <= 1; z++)
+          for (let y = 0; y <= 1; y++)
+            v.push([x, y, z]);
+      // Top surface only
+      for (let x = -3; x <= 3; x++)
+        for (let z = -1; z <= 1; z++)
+          v.push([x, 2, z]);
+      return v;
+    })(),
+  },
+  {
+    name: 'Podium',
+    color: '#2a1810',
+    voxels: (() => {
+      const v = [];
+      for (let y = 0; y < 4; y++)
+        for (let x = -1; x <= 1; x++)
+          for (let z = -1; z <= 1; z++)
+            if (Math.abs(x) + Math.abs(z) > 0 || y < 3) v.push([x, y, z]);
+      return v;
+    })(),
+  },
+  {
+    name: 'Cyc Wall',
+    color: '#e8e8ec',
+    voxels: (() => {
+      const v = [];
+      for (let x = -6; x <= 6; x++)
+        for (let y = 0; y < 8; y++)
+          v.push([x, y, -6]);
+      return v;
+    })(),
+  },
+  {
+    name: 'Director Chair',
+    color: '#1a1010',
+    voxels: [
+      [0,0,0],[0,1,0],[0,2,0],
+      [0,0,1],[0,1,1],
+      [0,3,0],[0,3,1],[0,4,0],[0,4,1],
+      [1,0,0],[1,0,1],
+    ],
+  },
+  {
+    name: 'Camera Crane',
+    color: '#303040',
+    voxels: (() => {
+      const v = [];
+      // Base
+      for (let x=-1;x<=1;x++) for(let z=-1;z<=1;z++) v.push([x,0,z]);
+      // Vertical pole
+      for (let y=1;y<6;y++) v.push([0,y,0]);
+      // Arm
+      for (let x=0;x<=4;x++) v.push([x,5,0]);
+      v.push([4,4,0]);
+      return v;
+    })(),
+  },
+  {
+    name: 'News Desk',
+    color: '#0a1a30',
+    voxels: (() => {
+      const v = [];
+      // Curved desk
+      const pts = [[-4,2],[- 3,1],[-2,1],[-1,1],[0,1],[1,1],[2,1],[3,1],[4,2]];
+      pts.forEach(([x,z])=> {
+        for(let y=0;y<=2;y++) v.push([x,y,z]);
+      });
+      // Desktop
+      pts.forEach(([x,z]) => v.push([x,3,z]));
+      return v;
+    })(),
+  },
+];
+
+function buildLibraryUI() {
+  const el = document.getElementById('vox-library');
+  el.innerHTML = VOX_LIBRARY.map((item, i) => `
+    <button class="mini-btn" style="width:100%;text-align:left;padding:6px 8px"
+      onclick="summonVoxelSet(${i})">
+      <span style="color:var(--accent)">▶</span> ${item.name}
+    </button>
+  `).join('');
+}
+
+// Core voxel fly-in assembler
+async function summonVoxelSet(idx) {
+  if (_assembling) return;
+  const item = VOX_LIBRARY[idx];
+  if (!item) return;
+  _assembling = true;
+  setVoxStatus(`Summoning ${item.name}…`);
+  await _flyInVoxels(item.voxels, item.color);
+  setVoxStatus(`${item.name} — on stage`);
+  _assembling = false;
+}
+
+function _flyInVoxels(voxelList, colorHex) {
+  return new Promise(resolve => {
+    const color = new THREE.Color(colorHex || '#00e5cc');
+    const count = voxelList.length;
+    const geo   = new THREE.BoxGeometry(VOX_SIZE, VOX_SIZE, VOX_SIZE);
+
+    // Build instanced mesh
+    const mat = new THREE.MeshStandardMaterial({
+      color, roughness: 0.6, metalness: 0.2,
+      emissive: color, emissiveIntensity: 0.0,
+    });
+    const mesh = new THREE.InstancedMesh(geo, mat, count);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    _voxGroups.push(mesh);
+
+    // Per-voxel animation state
+    const dummy = new THREE.Object3D();
+    const targets  = voxelList.map(([x, y, z]) => new THREE.Vector3(
+      x * VOX_GAP,
+      y * VOX_GAP + VOX_SIZE / 2,
+      z * VOX_GAP,
+    ));
+
+    // Start positions: random on the horizon, far away + swirling altitude
+    const startPos = targets.map((t, i) => {
+      const angle  = (i / count) * Math.PI * 6 + Math.random() * Math.PI;
+      const radius = 80 + Math.random() * 60;
+      const height = 30 + Math.random() * 40;
+      return new THREE.Vector3(
+        Math.cos(angle) * radius,
+        height,
+        Math.sin(angle) * radius,
+      );
+    });
+
+    // Stagger delays — voxels don't all start at once
+    const delays = targets.map((_, i) => i / count * 0.6 + Math.random() * 0.2);
+
+    let elapsed = 0;
+    const DURATION = 2.2;
+
+    // Set all to start positions
+    startPos.forEach((p, i) => {
+      dummy.position.copy(p);
+      dummy.scale.setScalar(0.1);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+
+    // Emissive pulse during assembly
+    mat.emissiveIntensity = 0.5;
+
+    const _update = (dt) => {
+      elapsed += dt;
+      let allDone = true;
+
+      for (let i = 0; i < count; i++) {
+        const delay    = delays[i];
+        const progress = Math.max(0, (elapsed - delay) / (DURATION * (0.6 + delay)));
+
+        if (progress < 1) allDone = false;
+        const t = Math.min(progress, 1);
+
+        // Ease: fast approach, decelerate to land
+        const eased = t < 0.8
+          ? t / 0.8 * 0.9
+          : 0.9 + ((t - 0.8) / 0.2) * 0.1;
+
+        // Spiral path: lerp from start + orbital offset
+        const spiral = Math.sin(progress * Math.PI * 2.5) * (1 - eased) * 8;
+        const pos = new THREE.Vector3().lerpVectors(startPos[i], targets[i], eased);
+        pos.x += Math.sin(elapsed * 3 + i) * spiral * 0.15;
+        pos.y += Math.cos(elapsed * 2 + i) * spiral * 0.1;
+
+        const scale = 0.1 + eased * 0.9;
+
+        dummy.position.copy(pos);
+        dummy.scale.setScalar(scale);
+        dummy.rotation.y = (1 - eased) * elapsed * 2 + i;
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+
+      // Fade emissive as landing completes
+      mat.emissiveIntensity = Math.max(0, 0.5 * (1 - elapsed / DURATION));
+
+      if (allDone) {
+        mat.emissiveIntensity = 0;
+        resolve();
+      } else {
+        requestAnimationFrame((ts) => {
+          const now = ts / 1000;
+          if (!_lastVoxTime) _lastVoxTime = now;
+          _update(now - _lastVoxTime);
+          _lastVoxTime = now;
+        });
+      }
+    };
+
+    let _lastVoxTime = null;
+    requestAnimationFrame((ts) => { _lastVoxTime = ts / 1000; _update(0.016); });
+  });
+}
+
+let _lastVoxTime = null;
+
+function clearVoxels() {
+  _voxGroups.forEach(m => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+  _voxGroups = [];
+  setVoxStatus('Stage cleared');
+}
+
+function setVoxStatus(msg) {
+  document.getElementById('vox-status').textContent = msg;
+}
+
+function _setPromptStatus(msg) {
+  const el = document.getElementById('vox-prompt-status');
+  if (el) el.textContent = msg;
+}
+
+async function generateVoxelPrompt() {
+  if (_assembling) return;
+  const input = document.getElementById('vox-prompt');
+  const prompt = (input?.value || '').trim();
+  if (!prompt) {
+    _setPromptStatus('Type a voxel set description first');
+    return;
+  }
+  _assembling = true;
+  setVoxStatus('Generating voxel prompt...');
+  _setPromptStatus('Calling PubWorld voxel generator');
+  try {
+    const response = await fetch('/api/pubworld/props/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Client-Id': localStorage.getItem('pubcastHostId') || 'stage_builder'},
+      body: JSON.stringify({
+        prompt,
+        scene_id: 'pubworld_stage',
+        provider: 'pubworld_rules'
+      })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const payload = await response.json();
+    const voxels = payload.voxels || (payload.blocks || []).map(b => [b.x || 0, b.y || 0, b.z || 0]);
+    if (!Array.isArray(voxels) || !voxels.length) throw new Error('No voxels generated');
+    const item = {
+      name: payload.label || prompt.slice(0, 32),
+      color: _floorColor || '#00e5cc',
+      voxels,
+      prop_id: payload.prop?.prop_id
+    };
+    VOX_LIBRARY.push(item);
+    buildLibraryUI();
+    await _flyInVoxels(item.voxels, item.color);
+    setVoxStatus(`${item.name} generated`);
+    _setPromptStatus(`Built ${voxels.length} voxels${item.prop_id ? ` as ${item.prop_id}` : ''}`);
+    if (input) input.value = '';
+  } catch (err) {
+    console.error('Voxel prompt generation failed', err);
+    setVoxStatus('Prompt generation failed');
+    _setPromptStatus(err.message || 'Backend not ready');
+  } finally {
+    _assembling = false;
+  }
+}
+
+function summonSet() {
+  // Summon a random set from library
+  const idx = Math.floor(Math.random() * VOX_LIBRARY.length);
+  summonVoxelSet(idx);
+}
+
+// Import custom voxel JSON
+function importVoxelSet(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const voxels = data.voxels || data;
+      const color  = data.color  || '#00e5cc';
+      if (!Array.isArray(voxels)) throw new Error('Expected array of [x,y,z]');
+      setVoxStatus(`Importing ${voxels.length} voxels…`);
+      // Add to library
+      VOX_LIBRARY.push({ name: data.name || file.name.replace('.json',''), color, voxels });
+      buildLibraryUI();
+      await _flyInVoxels(voxels, color);
+      setVoxStatus('Import complete');
+    } catch(err) {
+      setVoxStatus('Import error: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLOOR CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+function setStageSize(n) {
+  _stageSize = n;
+  document.getElementById('stage-size-label').textContent = `${n}×${n}`;
+  document.querySelectorAll('#panel-left .panel-section:first-child .mini-btn').forEach(b => {
+    b.classList.toggle('on', b.textContent.includes(n + '×'));
+  });
+  buildFloor();
+  buildGrid();
+  buildVGrid();
+  buildEdge();
+}
+
+function setFloorType(type) {
+  _floorType = type;
+  buildFloor();
+}
+
+function setFloorFX(fx) {
+  _floorFX = fx;
+  document.querySelectorAll('[id^="fx-"]').forEach(b => b.classList.remove('on'));
+  const btn = document.getElementById('fx-' + fx);
+  if (btn) btn.classList.add('on');
+  buildFloor();
+}
+
+function toggleGrid() {
+  _gridVisible = !_gridVisible;
+  if (_gridMesh) _gridMesh.visible = _gridVisible;
+  document.getElementById('btn-grid').classList.toggle('active', _gridVisible);
+}
+
+function toggleVGrid() {
+  _vgridVisible = !_vgridVisible;
+  if (_vgridGroup) _vgridGroup.visible = _vgridVisible;
+  document.getElementById('btn-vgrid').classList.toggle('active', _vgridVisible);
+}
+
+function loadFloorImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      if (_floorTex) _floorTex.dispose();
+      _floorTex = new THREE.Texture(img);
+      _floorTex.needsUpdate = true;
+      _floorTex.wrapS = _floorTex.wrapT = THREE.RepeatWrapping;
+      _floorTex.repeat.set(4, 4);
+      _floorType = 'image';
+      document.getElementById('floor-type').value = 'image';
+      buildFloor();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setFloorSound(type) { _floorSound = type; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO — Web Audio API heel clicks
+// ═══════════════════════════════════════════════════════════════════════════
+let _audioCtx   = null;
+let _lastStep   = 0;
+let _stepPhase  = 0;
+
+function initAudio() {
+  if (_audioCtx) return;
+  _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playStep() {
+  if (!_audioEnabled || !_audioCtx) return;
+  const now = _audioCtx.currentTime;
+  if (now - _lastStep < 0.32) return;
+  _lastStep = now;
+  _stepPhase = 1 - _stepPhase;
+
+  const master = _audioCtx.createGain();
+  master.gain.setValueAtTime(0.18, now);
+  master.connect(_audioCtx.destination);
+
+  switch (_floorSound) {
+    case 'heel': {
+      // Sharp transient: two oscillators + noise burst
+      const osc = _audioCtx.createOscillator();
+      const env = _audioCtx.createGain();
+      osc.frequency.setValueAtTime(2200, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.04);
+      env.gain.setValueAtTime(1, now);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(env); env.connect(master);
+      osc.start(now); osc.stop(now + 0.09);
+      // Tap layer
+      const tap = _audioCtx.createOscillator();
+      const tenv = _audioCtx.createGain();
+      tap.frequency.setValueAtTime(_stepPhase ? 1400 : 1200, now);
+      tap.frequency.exponentialRampToValueAtTime(200, now + 0.025);
+      tenv.gain.setValueAtTime(0.6, now); tenv.gain.exponentialRampToValueAtTime(0.001, now+0.03);
+      tap.connect(tenv); tenv.connect(master);
+      tap.start(now); tap.stop(now + 0.03);
+      break;
+    }
+    case 'soft': {
+      const osc = _audioCtx.createOscillator();
+      const env = _audioCtx.createGain();
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
+      env.gain.setValueAtTime(0.5, now); env.gain.exponentialRampToValueAtTime(0.001, now+0.15);
+      osc.connect(env); env.connect(master); osc.start(now); osc.stop(now+0.16);
+      break;
+    }
+    case 'grass': {
+      const buf = _audioCtx.createBuffer(1, _audioCtx.sampleRate * 0.1, _audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * (1 - i/data.length);
+      const src = _audioCtx.createBufferSource();
+      const filt = _audioCtx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = 600; filt.Q.value = 0.5;
+      const env = _audioCtx.createGain();
+      env.gain.setValueAtTime(0.4, now); env.gain.exponentialRampToValueAtTime(0.001, now+0.1);
+      src.buffer = buf; src.connect(filt); filt.connect(env); env.connect(master);
+      src.start(now);
+      break;
+    }
+    case 'carpet': {
+      const buf = _audioCtx.createBuffer(1, _audioCtx.sampleRate * 0.08, _audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * (1 - i/data.length) * 0.3;
+      const src = _audioCtx.createBufferSource();
+      const filt = _audioCtx.createBiquadFilter();
+      filt.type = 'lowpass'; filt.frequency.value = 300;
+      src.buffer = buf; src.connect(filt); filt.connect(master); src.start(now);
+      break;
+    }
+    case 'water': {
+      const osc = _audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(200, now+0.05);
+      const env = _audioCtx.createGain();
+      env.gain.setValueAtTime(0.3, now); env.gain.exponentialRampToValueAtTime(0.001, now+0.08);
+      const reverb = _audioCtx.createConvolver();
+      osc.connect(env); env.connect(master); osc.start(now); osc.stop(now+0.1);
+      break;
+    }
+    case 'metal': {
+      const osc = _audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now+0.15);
+      const env = _audioCtx.createGain();
+      env.gain.setValueAtTime(0.5, now); env.gain.exponentialRampToValueAtTime(0.001, now+0.2);
+      const filt = _audioCtx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = 1200; filt.Q.value = 8;
+      osc.connect(filt); filt.connect(env); env.connect(master);
+      osc.start(now); osc.stop(now+0.2);
+      break;
+    }
+  }
+}
+
+function toggleAudio() {
+  _audioEnabled = !_audioEnabled;
+  document.getElementById('btn-audio').textContent = _audioEnabled ? '🔊 Heel' : '🔇 Muted';
+  document.getElementById('btn-audio').classList.toggle('active', _audioEnabled);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLOR WHEEL
+// ═══════════════════════════════════════════════════════════════════════════
+const cwCanvas = document.getElementById('cw-canvas');
+const cwCtx    = cwCanvas.getContext('2d');
+const CW_R     = 90;
+
+function drawColorWheel() {
+  const cx = 100, cy = 100;
+  for (let deg = 0; deg < 360; deg++) {
+    const angle = (deg - 90) * Math.PI / 180;
+    const grad = cwCtx.createRadialGradient(cx, cy, 0, cx, cy, CW_R);
+    grad.addColorStop(0, `hsl(${deg},0%,${_cwLightness}%)`);
+    grad.addColorStop(1, `hsl(${deg},100%,${_cwLightness}%)`);
+    cwCtx.beginPath();
+    cwCtx.moveTo(cx, cy);
+    cwCtx.arc(cx, cy, CW_R, angle, angle + Math.PI/180 + 0.01);
+    cwCtx.fillStyle = grad;
+    cwCtx.fill();
+  }
+  // Center white dot
+  cwCtx.beginPath();
+  cwCtx.arc(cx, cy, 6, 0, Math.PI*2);
+  cwCtx.fillStyle = `hsl(0,0%,${_cwLightness}%)`;
+  cwCtx.fill();
+}
+
+cwCanvas.addEventListener('click', e => {
+  const rect = cwCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const pixel = cwCtx.getImageData(x, y, 1, 1).data;
+  _cwColor = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+  document.getElementById('cw-preview').style.background = _cwColor;
+});
+
+function cwUpdateLight() {
+  _cwLightness = parseInt(document.getElementById('cw-light').value);
+  drawColorWheel();
+  document.getElementById('cw-preview').style.background = `hsl(0,0%,${_cwLightness}%)`;
+}
+
+function openColorWheel(target) {
+  _cwTarget = target;
+  document.getElementById('cw-modal').classList.add('show');
+  drawColorWheel();
+}
+
+function cwApply() {
+  if (_cwTarget === 'floor') {
+    _floorColor = _cwColor;
+    _floorType  = 'custom';
+    document.getElementById('floor-type').value = 'custom';
+    buildFloor();
+  } else if (_cwTarget && _cwTarget.startsWith('light_')) {
+    const id = _cwTarget.replace('light_', '');
+    if (_lights[id]) _lights[id].color.set(_cwColor);
+  }
+  cwClose();
+}
+
+function cwClose() {
+  document.getElementById('cw-modal').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAMERA ORBIT + MOUSE INTERACTION
+// ═══════════════════════════════════════════════════════════════════════════
+let _theta    = 0.22;
+let _phi      = 0.38;
+let _radius   = 22;
+let _dragging = false;
+let _lastXY   = { x: 0, y: 0 };
+
+canvas.addEventListener('mousedown', e => {
+  _dragging = true;
+  _lastXY = { x: e.clientX, y: e.clientY };
+  initAudio();
+});
+window.addEventListener('mouseup',   () => { _dragging = false; });
+window.addEventListener('mousemove', e => {
+  document.getElementById('cur').style.cssText = `left:${e.clientX}px;top:${e.clientY}px`;
+  if (_dragging) {
+    _theta += (e.clientX - _lastXY.x) * 0.007;
+    _phi    = Math.max(0.05, Math.min(1.3, _phi + (e.clientY - _lastXY.y) * 0.004));
+    _lastXY = { x: e.clientX, y: e.clientY };
+  }
+  // Simulate walking — trigger step sound when dragging
+  if (_dragging) playStep();
+});
+canvas.addEventListener('wheel', e => {
+  _radius = Math.max(5, Math.min(50, _radius + e.deltaY * 0.025));
+  e.preventDefault();
+}, { passive: false });
+
+// Coordinate display on floor hover
+const _raycaster = new THREE.Raycaster();
+const _mouse2d   = new THREE.Vector2();
+window.addEventListener('mousemove', e => {
+  _mouse2d.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  _mouse2d.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  _raycaster.setFromCamera(_mouse2d, camera);
+  if (_floorMesh) {
+    const hits = _raycaster.intersectObject(_floorMesh);
+    if (hits.length) {
+      const p = hits[0].point;
+      document.getElementById('coord-display').textContent =
+        `X: ${p.x.toFixed(1)}  Z: ${p.z.toFixed(1)}`;
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PANEL TOGGLES
+// ═══════════════════════════════════════════════════════════════════════════
+function togglePanel(side) {
+  const panel = document.getElementById(`panel-${side}`);
+  const btn   = document.getElementById(`btn-panel-${side}`);
+  panel.classList.toggle('hidden');
+  btn.classList.toggle('active', !panel.classList.contains('hidden'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SAVE / LOAD / EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function saveStage() {
+  const now = new Date().toISOString();
+  const hostName = localStorage.getItem('pubcastHostName') || 'Unknown Host';
+  const hostId = localStorage.getItem('pubcastHostId') || hostName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'unknown_host';
+  const stageId = `pubworld_stage_${Date.now()}`;
+  const stageContent = {
+    version: 1,
+    stageSize: _stageSize,
+    floorType: _floorType,
+    floorFX:   _floorFX,
+    floorColor: _floorColor,
+    skyMode:   _skyMode,
+    lights: Object.fromEntries(LIGHT_DEFS.map(d => [d.id, {
+      intensity: _lights[d.id].intensity,
+      color:     '#' + _lights[d.id].color.getHexString(),
+    }])),
+    ambient: _ambientLight.intensity,
+  };
+  const data = {
+    save_manifest: {
+      schema: 'pubcast.savefile.v1',
+      save_version: 1,
+      save_kind: 'pubworld_stage_manual_save',
+      saved_at: now,
+      title: 'PubWorld Stage',
+      session_id: stageId,
+      participant_count: 1
+    },
+    project_identity: {
+      project_id: stageId,
+      slug: stageId,
+      canonical_title: 'PubWorld Stage',
+      original_title: 'PubWorld Stage',
+      original_synopsis: localStorage.getItem('pubcastStageSynopsis') || '',
+      current_synopsis: localStorage.getItem('pubcastStageSynopsis') || '',
+      created_at: now,
+      last_modified_at: now,
+      created_by: hostId,
+      original_host_id: hostId
+    },
+    project_credits: {
+      creator: [hostName],
+      writer_of_record: [hostName],
+      director: [hostName],
+      producer: [hostName],
+      original_host: [hostName]
+    },
+    session_credits: {
+      session_id: stageId,
+      session_started_at: now,
+      session_ended_at: now,
+      host_user_id: hostId,
+      host_display_name: hostName,
+      participants: [{
+        user_id: hostId,
+        display_name: hostName,
+        session_role: ['host', 'stage_builder'],
+        project_role: ['creator', 'writer_of_record', 'director', 'producer'],
+        license_role: 'master',
+        joined_at: now,
+        left_at: now,
+        permissions_granted_in_session: ['save', 'export', 'edit'],
+        contributed_changes: true,
+        contribution_summary: 'Manual stage save from PubWorld stage editor',
+        creditable: true
+      }]
+    },
+    authority: {
+      current_host_id: hostId,
+      save_authority: [hostId],
+      broadcast_authority: [hostId],
+      export_authority: [hostId]
+    },
+    contribution_history: [{
+      timestamp: now,
+      user_id: hostId,
+      role: 'stage_builder',
+      action: 'manual_stage_save',
+      target: stageId
+    }],
+    content: stageContent
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${stageId}.json`;
+  a.click();
+}
+
+function loadStage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.stageSize) setStageSize(data.stageSize);
+      if (data.floorType) { _floorType = data.floorType; document.getElementById('floor-type').value = _floorType; }
+      if (data.floorFX)   { _floorFX   = data.floorFX; }
+      if (data.floorColor){ _floorColor = data.floorColor; }
+      if (data.skyMode)   setSkyMode(data.skyMode);
+      if (data.lights) {
+        Object.entries(data.lights).forEach(([id, cfg]) => {
+          if (_lights[id]) {
+            _lights[id].intensity = cfg.intensity;
+            _lights[id].color.set(cfg.color);
+          }
+        });
+      }
+      if (data.ambient !== undefined) setAmbient(data.ambient);
+      buildFloor();
+      setVoxStatus('Stage loaded');
+    } catch(err) { setVoxStatus('Load error: ' + err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function exportStageJSON() {
+  // Export current voxel layout as JSON
+  const voxels = [];
+  _voxGroups.forEach(mesh => {
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, dummy.matrix);
+      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      voxels.push([
+        Math.round(dummy.position.x / VOX_GAP),
+        Math.round(dummy.position.y / VOX_GAP),
+        Math.round(dummy.position.z / VOX_GAP),
+      ]);
+    }
+  });
+  const blob = new Blob([JSON.stringify({ voxels, color: '#' + (new THREE.Color(_floorColor)).getHexString() }, null, 2)]);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `pubworld_voxels_${Date.now()}.json`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ═══════════════════════════════════════════════════════════════════════════
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/pubworld_stage`);
+  const dot = document.getElementById('ws-dot');
+  ws.onopen  = () => { dot.className = 'ok'; };
+  ws.onclose = () => { dot.className = ''; setTimeout(connectWS, 3000); };
+  ws.onmessage = e => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'lighting_update' && ev.preset_id) applyLightPreset(ev.preset_id);
+    } catch(_){}
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t  = clock.getElapsedTime();
+  const dt = clock.getDelta();
+
+  // Update sky shader time
+  SKY_UNIFORMS.uTime.value = t;
+
+  // Orbit camera
+  camera.position.x = _radius * Math.sin(_theta) * Math.cos(_phi);
+  camera.position.y = _radius * Math.sin(_phi) + 1;
+  camera.position.z = _radius * Math.cos(_theta) * Math.cos(_phi);
+  camera.lookAt(0, _stageSize * 0.08, 0);
+
+  // Water floor ripple
+  if (_floorType === 'water' && _floorMesh) {
+    _floorMesh.material.emissive = new THREE.Color(0x001133);
+    _floorMesh.material.emissiveIntensity = 0.08 + Math.sin(t * 1.8) * 0.04;
+  }
+
+  // Starfield slow rotation
+  if (_skyMode === 'starry') {
+    skyDome.rotation.y = t * 0.008;
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+buildFloor();
+buildGrid();
+buildVGrid();
+buildEdge();
+buildLibraryUI();
+connectWS();
+animate();
+
+// Welcome: summon the broadcast desk on load
+setTimeout(() => summonVoxelSet(0), 800);
+</script>
+</body>
+</html>
